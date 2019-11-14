@@ -2,7 +2,7 @@
 //  SimpleMQTT.h
 //  SimpleMQTT
 //
-//  Created by Benjamin Stovold on 23/10/19.
+//  Created by Ben Stovold on 23/10/19.
 //
 
 #import <Foundation/Foundation.h>

@@ -11,14 +11,22 @@
 		9F496A6B235FC6150054F473 /* SimpleMQTT.h in Headers */ = {isa = PBXBuildFile; fileRef = 9F496A56235FC4F20054F473 /* SimpleMQTT.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		9F496A6E235FC7CF0054F473 /* MQTT.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F496A6D235FC7CF0054F473 /* MQTT.swift */; };
 		9F496A6F235FC7CF0054F473 /* MQTT.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F496A6D235FC7CF0054F473 /* MQTT.swift */; };
-		9F496A77235FC9930054F473 /* SimpleMQTTTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F496A76235FC9930054F473 /* SimpleMQTTTests.swift */; };
+		9F496A77235FC9930054F473 /* IntegerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F496A76235FC9930054F473 /* IntegerTests.swift */; };
 		9F496A79235FC9930054F473 /* SimpleMQTT.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9F496A53235FC4F20054F473 /* SimpleMQTT.framework */; };
-		9F496AE2236000E40054F473 /* AppendableData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F496AE1236000E40054F473 /* AppendableData.swift */; };
-		9F496AE3236000E40054F473 /* AppendableData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F496AE1236000E40054F473 /* AppendableData.swift */; };
-		9F496AE5236000FF0054F473 /* ConsumableData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F496AE4236000FF0054F473 /* ConsumableData.swift */; };
-		9F496AE6236000FF0054F473 /* ConsumableData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F496AE4236000FF0054F473 /* ConsumableData.swift */; };
-		9F496AE8236001380054F473 /* ControlPacket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F496AE7236001380054F473 /* ControlPacket.swift */; };
-		9F496AE9236001380054F473 /* ControlPacket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F496AE7236001380054F473 /* ControlPacket.swift */; };
+		9F50D7D3236FD6F0007D96C2 /* MQTTCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F50D7D0236FD6F0007D96C2 /* MQTTCodable.swift */; };
+		9F50D7D4236FD6F0007D96C2 /* MQTTDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F50D7D1236FD6F0007D96C2 /* MQTTDecoder.swift */; };
+		9F50D7D5236FD6F0007D96C2 /* MQTTEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F50D7D2236FD6F0007D96C2 /* MQTTEncoder.swift */; };
+		9F50D7D9236FDA34007D96C2 /* MQTTCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F50D7D0236FD6F0007D96C2 /* MQTTCodable.swift */; };
+		9F50D7DA236FDA34007D96C2 /* MQTTDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F50D7D1236FD6F0007D96C2 /* MQTTDecoder.swift */; };
+		9F50D7DB236FDA34007D96C2 /* MQTTEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F50D7D2236FD6F0007D96C2 /* MQTTEncoder.swift */; };
+		9F50D7DC236FDA37007D96C2 /* Integer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F6D7950236FA69C0079E656 /* Integer.swift */; };
+		9F5EAF8E2377C51D006BE2CC /* TransportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F5EAF8D2377C51D006BE2CC /* TransportTests.swift */; };
+		9F6D7951236FA69C0079E656 /* Integer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F6D7950236FA69C0079E656 /* Integer.swift */; };
+		9F856DD02372954200C70FC1 /* Transport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F856DCF2372954200C70FC1 /* Transport.swift */; };
+		9F856DD12372954200C70FC1 /* Transport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F856DCF2372954200C70FC1 /* Transport.swift */; };
+		9FD085A7236FF41B00FA471D /* Packet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD085A6236FF41B00FA471D /* Packet.swift */; };
+		9FD085A9236FF46C00FA471D /* PacketTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD085A8236FF46C00FA471D /* PacketTests.swift */; };
+		9FD085AB236FF63900FA471D /* Packet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD085A6236FF41B00FA471D /* Packet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -38,11 +46,16 @@
 		9F496A6A235FC5690054F473 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9F496A6D235FC7CF0054F473 /* MQTT.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MQTT.swift; sourceTree = "<group>"; };
 		9F496A74235FC9930054F473 /* SimpleMQTTTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SimpleMQTTTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		9F496A76235FC9930054F473 /* SimpleMQTTTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimpleMQTTTests.swift; sourceTree = "<group>"; };
+		9F496A76235FC9930054F473 /* IntegerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegerTests.swift; sourceTree = "<group>"; };
 		9F496A78235FC9930054F473 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		9F496AE1236000E40054F473 /* AppendableData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppendableData.swift; sourceTree = "<group>"; };
-		9F496AE4236000FF0054F473 /* ConsumableData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsumableData.swift; sourceTree = "<group>"; };
-		9F496AE7236001380054F473 /* ControlPacket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControlPacket.swift; sourceTree = "<group>"; };
+		9F50D7D0236FD6F0007D96C2 /* MQTTCodable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MQTTCodable.swift; sourceTree = "<group>"; };
+		9F50D7D1236FD6F0007D96C2 /* MQTTDecoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MQTTDecoder.swift; sourceTree = "<group>"; };
+		9F50D7D2236FD6F0007D96C2 /* MQTTEncoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MQTTEncoder.swift; sourceTree = "<group>"; };
+		9F5EAF8D2377C51D006BE2CC /* TransportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportTests.swift; sourceTree = "<group>"; };
+		9F6D7950236FA69C0079E656 /* Integer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Integer.swift; sourceTree = "<group>"; };
+		9F856DCF2372954200C70FC1 /* Transport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transport.swift; sourceTree = "<group>"; };
+		9FD085A6236FF41B00FA471D /* Packet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Packet.swift; sourceTree = "<group>"; };
+		9FD085A8236FF46C00FA471D /* PacketTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacketTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -94,9 +107,12 @@
 			isa = PBXGroup;
 			children = (
 				9F496A6D235FC7CF0054F473 /* MQTT.swift */,
-				9F496AE7236001380054F473 /* ControlPacket.swift */,
-				9F496AE4236000FF0054F473 /* ConsumableData.swift */,
-				9F496AE1236000E40054F473 /* AppendableData.swift */,
+				9FD085A6236FF41B00FA471D /* Packet.swift */,
+				9F856DCF2372954200C70FC1 /* Transport.swift */,
+				9F6D7950236FA69C0079E656 /* Integer.swift */,
+				9F50D7D0236FD6F0007D96C2 /* MQTTCodable.swift */,
+				9F50D7D1236FD6F0007D96C2 /* MQTTDecoder.swift */,
+				9F50D7D2236FD6F0007D96C2 /* MQTTEncoder.swift */,
 				9F496A6C235FC66E0054F473 /* Supporting Files */,
 			);
 			path = Sources;
@@ -114,7 +130,9 @@
 		9F496A75235FC9930054F473 /* SimpleMQTTTests */ = {
 			isa = PBXGroup;
 			children = (
-				9F496A76235FC9930054F473 /* SimpleMQTTTests.swift */,
+				9F496A76235FC9930054F473 /* IntegerTests.swift */,
+				9FD085A8236FF46C00FA471D /* PacketTests.swift */,
+				9F5EAF8D2377C51D006BE2CC /* TransportTests.swift */,
 				9F496A78235FC9930054F473 /* Info.plist */,
 			);
 			path = SimpleMQTTTests;
@@ -203,7 +221,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 1100;
-				LastUpgradeCheck = 1100;
+				LastUpgradeCheck = 1120;
 				TargetAttributes = {
 					9F496A52235FC4F20054F473 = {
 						CreatedOnToolsVersion = 11.0;
@@ -267,10 +285,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9F50D7D3236FD6F0007D96C2 /* MQTTCodable.swift in Sources */,
+				9F6D7951236FA69C0079E656 /* Integer.swift in Sources */,
+				9F50D7D5236FD6F0007D96C2 /* MQTTEncoder.swift in Sources */,
 				9F496A6E235FC7CF0054F473 /* MQTT.swift in Sources */,
-				9F496AE2236000E40054F473 /* AppendableData.swift in Sources */,
-				9F496AE5236000FF0054F473 /* ConsumableData.swift in Sources */,
-				9F496AE8236001380054F473 /* ControlPacket.swift in Sources */,
+				9FD085A7236FF41B00FA471D /* Packet.swift in Sources */,
+				9F856DD02372954200C70FC1 /* Transport.swift in Sources */,
+				9F50D7D4236FD6F0007D96C2 /* MQTTDecoder.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -278,10 +299,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9F50D7D9236FDA34007D96C2 /* MQTTCodable.swift in Sources */,
 				9F496A6F235FC7CF0054F473 /* MQTT.swift in Sources */,
-				9F496AE3236000E40054F473 /* AppendableData.swift in Sources */,
-				9F496AE6236000FF0054F473 /* ConsumableData.swift in Sources */,
-				9F496AE9236001380054F473 /* ControlPacket.swift in Sources */,
+				9F50D7DB236FDA34007D96C2 /* MQTTEncoder.swift in Sources */,
+				9F50D7DA236FDA34007D96C2 /* MQTTDecoder.swift in Sources */,
+				9FD085AB236FF63900FA471D /* Packet.swift in Sources */,
+				9F856DD12372954200C70FC1 /* Transport.swift in Sources */,
+				9F50D7DC236FDA37007D96C2 /* Integer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -289,7 +313,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9F496A77235FC9930054F473 /* SimpleMQTTTests.swift in Sources */,
+				9F5EAF8E2377C51D006BE2CC /* TransportTests.swift in Sources */,
+				9FD085A9236FF46C00FA471D /* PacketTests.swift in Sources */,
+				9F496A77235FC9930054F473 /* IntegerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -307,7 +333,34 @@
 		9F496A4C235FC4B60054F473 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				INFOPLIST_FILE = Sources/Info.plist;
+				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(PROJECT_NAME:c99extidentifier)";
 			};
 			name = Debug;
@@ -315,6 +368,31 @@
 		9F496A4D235FC4B60054F473 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				INFOPLIST_FILE = Sources/Info.plist;
 				PRODUCT_NAME = "$(PROJECT_NAME:c99extidentifier)";
 			};

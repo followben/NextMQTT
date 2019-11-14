@@ -2,12 +2,15 @@
 //  MQTT.swift
 //  SimpleMQTT
 //
-//  Created by Benjamin Stovold on 23/10/19.
+//  Created by Ben Stovold on 23/10/19.
 //
 
 import Foundation
 
 public final class MQTT {
+    
+    static let ProtocolName: String = "MQTT"
+    static let ProtocolVersion: UInt8 = 5
     
     // MARK: - Public Properties
     
@@ -75,26 +78,11 @@ public final class MQTT {
     
     private var onConnAck: (() -> Void)?
     
-    private func _streamTaskInitial() -> URLSessionStreamTask {
-        let session = URLSession(configuration: .default)
-        let task = session.streamTask(withHostName: host, port: port)
-        task.resume()
-        if secureConnection {
-            task.startSecureConnection()
-        }
-        enqueueRead()
-        return task
-    }
-    private var _streamTask: URLSessionStreamTask?
-    var streamTask: URLSessionStreamTask! {
-      get {
-        if _streamTask == nil { _streamTask = _streamTaskInitial() }
-        return _streamTask
-      }
-      set {
-        _streamTask = newValue
-      }
-    }
+    private lazy var transport: Transport = {
+        let transport = Transport(hostName: host, port: port, useTLS: secureConnection, queue: DispatchQueue.main)
+        transport.delegate = self
+        return transport
+    }()
     
     private var messageId: UInt16 = 0
     
@@ -132,37 +120,35 @@ public final class MQTT {
             completion?(true)
         }
         messageId = 0
-        writeConnect()
+        transport.start()
     }
     
     public func disconnect() {
         connectionState = .disconnecting
-        writeDisconnect() { [weak self] success in
-            self?.streamTask.closeRead()
-            self?.streamTask.closeWrite()
-        }
+        sendDisconnect()
+//            print("cancelling...")
+//            self?.streamTask.cancel()
+//            print("closing write...")
+//            self?.streamTask.closeWrite()
+//            print("closing read...")
+//            self?.streamTask.closeRead()
+
     }
     
-    public func subscribe(to topic: String) {
-        sendSubscribe(to: topic)
-    }
-    
-    public func unsubscribe(from topic: String) {
-        writeUnsubscribe(from: topic)
-    }
-    
-    public func publish(to topic: String, message: Data?) {
-        writePublish(to: topic, message: message ?? Data())
-    }
+//    public func subscribe(to topic: String) { }
+//
+//    public func unsubscribe(from topic: String) { }
+//
+//    public func publish(to topic: String, message: Data?) { }
     
     // MARK: - Private Methods
     
     private func keepAlive() {
         let deadline = DispatchTime.now() + .seconds(Int(pingInterval / 2))
-        DispatchQueue.global(qos: .default).asyncAfter(deadline: deadline) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: deadline) { [weak self] in
             guard self?.connectionState == .connected else { return }
             
-            self?.writePing()
+            self?.sendPing()
             self?.keepAlive()
         }
     }
@@ -183,188 +169,48 @@ public final class MQTT {
                 self?.reconnect()
             }
         }
-        writeConnect()
+        transport.start()
     }
     
-    // MARK: Read
-    
-    private func enqueueRead() {
-        let maxLength = bufferSize
-        DispatchQueue.global(qos: readQos.qosClass).async { [weak self] in
-            self?.streamTask.readData(ofMinLength: 1, maxLength: maxLength, timeout: 0, completionHandler: { data, isEOF, error in
-                if let error = error {
-                    self?.onError?(error)
-                    return
-                }
-                if isEOF {
-                    print("EOF")
-                    self?.streamTask = nil
-                    if self?.connectionState == .disconnecting {
-                        self?.connectionState = .disconnected
-                    } else {
-                        self?.connectionState = .dropped
-                        self?.reconnect()
-                    }
-                    return
-                }
-                if let data = data {
-                    self?.read(data)
-                }
-                self?.enqueueRead()
-            })
-        }
+    private func sendConnect() {
+        let conn = try! ConnectPacket(clientId: clientId, username: username, password: password, keepAlive: pingInterval)
+        transport.send(packet: conn)
     }
-    
-    private func read(_ data: Data) {
-        var buffer = ConsumableData(data)
-        var packetType: ControlPacketType = .connack
-        var multiplier = 1
-        var remainingLength = 0
-        
-        readState = .readingFixedHeader
-        
-        while !buffer.atEnd {
-            
-            while readState == .readingFixedHeader && !buffer.atEnd {
-                if let header = buffer.read(), let controlType = ControlPacketType(rawValue: header) {
-                    packetType = controlType
-                    readState = .readingRemainingLength
-                    multiplier = 1
-                    remainingLength = 0
-                }
-            }
-            
-            while readState == .readingRemainingLength && !buffer.atEnd {
-                if let remaining = buffer.read() {
-                    remainingLength += Int(remaining & 127) * multiplier
-                    if remaining & 128 == 0x00 {
-                        if remainingLength > 0 {
-                            readState = .readingPayload
-                        } else {
-                            readState = .readingFixedHeader
-                        }
-                    } else {
-                        multiplier *= 128
-                    }
-                } else {
-                    readState = .readingFixedHeader
-                }
-            }
-            
-            while readState == .readingPayload && !buffer.atEnd {
-                switch packetType {
-                case .publish:
-                    let topicHeaderLength = 2
-                    guard let topicLengthBuffer = buffer.read(topicHeaderLength) else {
-                        readState = .readingFixedHeader
-                        break
-                    }
-                    
-                    let topicLength = Int(topicLengthBuffer[0]) * 256 + Int(topicLengthBuffer[1])
-                    
-                    guard remainingLength > topicLength + 2 else {
-                        readState = .readingFixedHeader
-                        break
-                    }
-                    
-                    guard let topicBuffer = buffer.read(topicLength), let topic = String(bytes: topicBuffer, encoding: .utf8) else {
-                        readState = .readingFixedHeader
-                        break
-                    }
-                    
-                    // TODO: Is it legal to get a topic header but no message? This assumes not.
-                    guard let messageBuffer = buffer.read(remainingLength - topicLength - topicHeaderLength) else {
-                        readState = .readingFixedHeader
-                        break
-                    }
-                    
-                    onMessage?(topic, Data(messageBuffer))
-                    readState = .readingFixedHeader
-                
-                case .connack:
-                    onConnAck?()
-                    readState = .readingFixedHeader
-                    
-                default:
-                    readState = .readingFixedHeader
-                }
-            }
-        }
-        
-        readState = .idle
-    }
-    
-    // MARK: Write
-    
-    private func writeConnect() {
-        var packet = ControlPacket(type: .connect)
-        packet.payload += clientId
-        
-        // section 3.1.2.3
-        var connectFlags: UInt8 = 0b00000010        // clean session
-        
-        if let username = username {
-            connectFlags |= 0b10000000
-            packet.payload += username
-        }
 
-        if let password = password {
-            connectFlags |= 0b01000000
-            packet.payload += password
-        }
-        
-        packet.variableHeader += "MQTT"             // section 3.1.2.1
-        packet.variableHeader += UInt8(0b00000100)  // section 3.1.2.2
-        packet.variableHeader += connectFlags
-        packet.variableHeader += pingInterval       // section 3.1.2.10
-        
-        write(packet: packet)
+    private func sendPing() {
+        print("Pinging...")
+        transport.send(packet: PingReqPacket())
     }
     
-    private func writeDisconnect(completion: ((_ success: Bool) -> ())? = nil) {
-        write(packet: ControlPacket(type: .disconnect)) { success in
-            completion?(success)
-        }
-    }
-    
-    private func sendSubscribe(to topic: String) {
-        var packet = ControlPacket(type: .subscribe, flags: .reserved)
-        packet.variableHeader += nextMessageId()
-        packet.payload += topic    // section 3.8.3
-        packet.payload += UInt8(0) // QoS = 0
-        
-        write(packet: packet)
-    }
-    
-    private func writeUnsubscribe(from topic: String) {
-        var packet = ControlPacket(type: .unsubscribe, flags: .reserved)
-        packet.variableHeader += nextMessageId()
-        packet.payload += topic
-        
-        write(packet: packet)
-    }
-    
-    private func writePublish(to topic: String, message: Data) {
-        var packet = ControlPacket(type: .publish)
-        packet.variableHeader += topic // section 3.3.2
-        // TODO: Add 2 (for messageId) if/when QOS > 0
-        packet.payload += message      // section 3.3.3
-        
-        write(packet: packet)
-    }
-    
-    private func writePing() {
-        write(packet: ControlPacket(type: .pingreq))
-    }
-    
-    private func write(packet: ControlPacket, completion: ((_ success: Bool) -> ())? = nil) {
-        streamTask.write(packet.data, timeout: 10, completionHandler: { error in
-            completion?(error != nil)
-        })
+    private func sendDisconnect() {
+        connectionState = .disconnecting
+        transport.send(packet: DisconnectPacket())
+        transport.stop()
+        connectionState = .disconnected
     }
     
     private func nextMessageId() -> UInt16 {
         messageId = messageId &+ 1
         return messageId
+    }
+}
+
+extension MQTT: TransportDelegate {
+    func didStart(transport: Transport) {
+        sendConnect()
+    }
+
+    func didReceive(packet: MQTTPacket, transport: Transport) {
+        if packet.fixedHeader.controlOptions == .connack, let onConnAck = onConnAck {
+            onConnAck()
+            self.onConnAck = nil
+        } else if packet.fixedHeader.controlOptions == .pingresp {
+            print("Ping acknowledged")
+        }
+    }
+
+    func didStop(transport: Transport) {
+        connectionState = .dropped
+        reconnect()
     }
 }
