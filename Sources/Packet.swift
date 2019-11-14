@@ -7,6 +7,11 @@
 
 import Foundation
 
+fileprivate extension MQTT {
+    static let ProtocolName: String = "MQTT"
+    static let ProtocolVersion: UInt8 = 5
+}
+
 fileprivate extension String {
     var byteCount: UInt {
         UInt(self.utf8.count + 2)

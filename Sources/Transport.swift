@@ -14,7 +14,7 @@ protocol TransportDelegate : AnyObject {
     func didReceive(packet: MQTTPacket, transport: Transport)
 
     /// Not called when connection results from `.stop()` being called
-    func didStop(transport: Transport)
+    func didStop(transport: Transport, error: Transport.Error?)
 }
 
 /// The possible connection states.
@@ -328,7 +328,7 @@ extension Transport {
                 // means that only one person can ever schedule this delegate
                 // callback.  Moreover, if it was scheduled it needs to be
                 // called.
-                self.delegate?.didStop(transport: self)
+                self.delegate?.didStop(transport: self, error: error)
             }
         }
         return .stopped(error)
@@ -364,6 +364,7 @@ extension Transport {
         do {
             started.decoder.append([UInt8](data))
             packets = try started.decoder.decode([MQTTPacket].self)
+            // TODO: drop?
         } catch let error as MQTTDecoder.Error {
             return self.handleStop(error: Error.decodingError(error), notify: true, state: .started(started))
         } catch {

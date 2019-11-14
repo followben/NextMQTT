@@ -9,18 +9,12 @@ import Foundation
 
 public final class MQTT {
     
-    static let ProtocolName: String = "MQTT"
-    static let ProtocolVersion: UInt8 = 5
-    
     // MARK: - Public Properties
     
     public enum OptionsKey {
         case pingInterval, secureConnection, clientId, bufferSize, readQos
     }
 
-    public var onMessage: ((_ topic: String, _ data: Data) -> Void)?
-    public var onError: ((_ error: Error) -> Void)?
-    
     // MARK: - Internal Properties
     
     private enum ConnectionState {
@@ -78,11 +72,14 @@ public final class MQTT {
     
     private var onConnAck: (() -> Void)?
     
-    private lazy var transport: Transport = {
+    private var _transport: Transport?
+    private var transport: Transport {
+        if let transport = _transport { return transport }
         let transport = Transport(hostName: host, port: port, useTLS: secureConnection, queue: DispatchQueue.main)
         transport.delegate = self
+        _transport = transport
         return transport
-    }()
+    }
     
     private var messageId: UInt16 = 0
     
@@ -120,19 +117,11 @@ public final class MQTT {
             completion?(true)
         }
         messageId = 0
-        transport.start()
+        transport.start()c
     }
     
     public func disconnect() {
-        connectionState = .disconnecting
         sendDisconnect()
-//            print("cancelling...")
-//            self?.streamTask.cancel()
-//            print("closing write...")
-//            self?.streamTask.closeWrite()
-//            print("closing read...")
-//            self?.streamTask.closeRead()
-
     }
     
 //    public func subscribe(to topic: String) { }
@@ -163,12 +152,13 @@ public final class MQTT {
             }
         }
         let deadline = DispatchTime.now() + .seconds(5)
-        DispatchQueue.global(qos: .default).asyncAfter(deadline: deadline) { [weak self] in
-            if self?.connectionState != .connected {
+        DispatchQueue.main.asyncAfter(deadline: deadline) { [weak self] in
+            if self?.connectionState == .dropped || self?.connectionState == .reconnecting {
                 print("Reconnect Timed Out. Trying again...")
                 self?.reconnect()
             }
         }
+        resetTransport()
         transport.start()
     }
     
@@ -193,6 +183,10 @@ public final class MQTT {
         messageId = messageId &+ 1
         return messageId
     }
+    
+    private func resetTransport() {
+        _transport = nil
+    }
 }
 
 extension MQTT: TransportDelegate {
@@ -209,8 +203,11 @@ extension MQTT: TransportDelegate {
         }
     }
 
-    func didStop(transport: Transport) {
-        connectionState = .dropped
-        reconnect()
+    func didStop(transport: Transport, error: Transport.Error?) {
+        if error == nil {
+            connectionState = .dropped
+            resetTransport()
+            reconnect()
+        }
     }
 }
