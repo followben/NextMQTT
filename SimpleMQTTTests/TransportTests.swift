@@ -177,7 +177,7 @@ class TransportTests: XCTestCase, TransportDelegate {
         packetsReceived.append(packet)
     }
     
-    func didStop(transport: Transport) {
+    func didStop(transport: Transport, error: Transport.Error?) {
         didStopCalled = true
     }
     

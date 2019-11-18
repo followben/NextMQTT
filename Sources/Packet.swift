@@ -38,12 +38,15 @@ struct ControlOptions: OptionSet, MQTTCodable {
 //    disconnect =  0xe0
     static let connect      = ControlOptions(rawValue: 1 << 4)
     static let connack      = ControlOptions(rawValue: 2 << 4)
+    static let subscribe    = ControlOptions(rawValue: 8 << 4)
+    static let suback       = ControlOptions(rawValue: 9 << 4)
     static let pingreq      = ControlOptions(rawValue: 12 << 4)
     static let pingresp     = ControlOptions(rawValue: 13 << 4)
     static let disconnect   = ControlOptions(rawValue: 14 << 4)
     
     // Flags specific to each Control Packet type
-    static let reserved     = ControlOptions(rawValue: 0)
+    static let reserved0    = ControlOptions(rawValue: 0)
+    static let reserved1    = ControlOptions(rawValue: 1 << 1)
 }
 
 enum PropertyIdentifier: UInt {
@@ -72,7 +75,7 @@ struct MQTTPacket: DecodablePacket {
         var container = try decoder.unkeyedContainer()
         let fixedHeader = try container.decode(FixedHeader.self)
         let numberOfBytes = Int(fixedHeader.remainingLength)
-        var bytes: [UInt8] = []
+        var bytes: [UInt8] = try MQTTEncoder.encode(fixedHeader)
         for _ in 0..<numberOfBytes {
             let byte = try container.decode(UInt8.self)
             bytes.append(byte)
@@ -124,7 +127,7 @@ public struct ConnectPacket: EncodablePacket {
         let variableHeaderLength = MQTT.ProtocolName.byteCount + 1 + 1 + 2 + 1
         let payloadlength = clientId.byteCount + (username?.byteCount ?? 0) + (password?.byteCount ?? 0)
         let remainingLength = try UIntVar(payloadlength + variableHeaderLength)
-        self.fixedHeader = FixedHeader(controlOptions: [.connect, .reserved], remainingLength: remainingLength)
+        self.fixedHeader = FixedHeader(controlOptions: [.connect, .reserved0], remainingLength: remainingLength)
         self.clientId = clientId
         self.username = username
         self.password = password
@@ -150,28 +153,28 @@ struct ConnackFlags: OptionSet, MQTTDecodable {
 }
 
 enum ConnackReason: UInt8, MQTTDecodable {
-    case success                = 0x00  // Success: The Connection is accepted.
-    case unspecifiedError       = 0x80  // Unspecified Error: The Server does not wish to reveal the reason for the failure, or none of the other Reason Codes apply.
-    case malformedPacket        = 0x81  // Malformed Packet: Data within the CONNECT packet could not be correctly parsed.
-    case protocolError          = 0x82  // Protocol Error: Data in the CONNECT packet does not conform to this specification.
-    case implementationError    = 0x83  // Implementation specific error: The CONNECT is valid but is not accepted by this Server.
-    case unsupportedVersion     = 0x84  // Unsupported Protocol Version: The Server does not support the version of the MQTT protocol requested by the Client.
-    case invalidClientId        = 0x85  // Client Identifier not valid: The Client Identifier is a valid string but is not allowed by the Server.
-    case invalidCredentials     = 0x86  // Bad User Name or Password: The Server does not accept the User Name or Password specified by the Client.
-    case unauthorized           = 0x87  // Not authorized: The Client is not authorized to connect.
-    case unavailable            = 0x88  // Server unavailable: The MQTT Server is not available.
-    case busy                   = 0x89  // Server busy: The Server is busy. Try again later.
-    case banned                 = 0x8A  // Banned: This Client has been banned by administrative action.
-    case badAuthMethod          = 0x8C  // Bad authentication method: The authentication method is not supported or does not match the authentication method currently in use.
-    case willTopicInvalid       = 0x90  // Topic Name invalid: The Will Topic Name is not malformed, but is not accepted by this Server.
-    case packetTooLarge         = 0x95  // Packet too large: The CONNECT packet exceeded the maximum permissible size.
-    case quotaExceeded          = 0x97  // Quota exceeded: An implementation or administrative imposed limit has been exceeded.
-    case willPayloadInvalid     = 0x99  // Payload format invalid: The Will Payload does not match the specified Payload Format Indicator.
-    case retainNotSupported     = 0x9A  // Retain not supported: The Server does not support retained messages, and Will Retain was set to 1.
-    case willQoSNotSupported    = 0x9B  // QoS not supported: The Server does not support the QoS set in Will QoS.
-    case useAnotherServer       = 0x9C  // Use another server: The Client should temporarily use another server.
-    case serverMoved            = 0x9D  // Server moved: The Client should permanently use another server.
-    case rateLimitExceeded      = 0x9F  // Connection rate exceeded: The connection rate limit has been exceeded.
+    case success                = 0x00
+    case unspecifiedError       = 0x80
+    case malformedPacket        = 0x81
+    case protocolError          = 0x82
+    case implementationError    = 0x83
+    case unsupportedVersion     = 0x84
+    case invalidClientId        = 0x85
+    case invalidCredentials     = 0x86
+    case unauthorized           = 0x87
+    case unavailable            = 0x88
+    case busy                   = 0x89
+    case banned                 = 0x8A
+    case badAuthMethod          = 0x8C
+    case willTopicInvalid       = 0x90
+    case packetTooLarge         = 0x95
+    case quotaExceeded          = 0x97
+    case willPayloadInvalid     = 0x99
+    case retainNotSupported     = 0x9A
+    case willQoSNotSupported    = 0x9B
+    case useAnotherServer       = 0x9C
+    case serverMoved            = 0x9D
+    case rateLimitExceeded      = 0x9F
 }
 
 struct ConnackPacket: DecodablePacket {
@@ -182,7 +185,7 @@ struct ConnackPacket: DecodablePacket {
     let flags: ConnackFlags             // 3.2.2.1 Connect Acknowledge Flags
     let reasonCode: ConnackReason       // 3.2.2.2 Connect Reason Code
     
-    // Properties
+    // Payload
     var topicAliasMaximum: Int = 0
 }
 
@@ -216,14 +219,101 @@ extension ConnackPacket: MQTTDecodable {
     }
 }
 
+// MARK: 3.8 SUBSCRIBE - Subscribe request
+
+struct SubscriptionOptions: OptionSet, MQTTEncodable {     // 3.8.3.1 Subscription Options
+    let rawValue: UInt8
+
+    static let qos0                         = SubscriptionOptions(rawValue: 0)
+    static let qos1                         = SubscriptionOptions(rawValue: 1)
+    static let qos2                         = SubscriptionOptions(rawValue: 2)
+    
+    static let noLocal                      = SubscriptionOptions(rawValue: 1 << 2)
+    
+    static let retainAsPublished            = SubscriptionOptions(rawValue: 1 << 3)
+    
+    static let retainSendOnSubscribe        = SubscriptionOptions(rawValue: 0 << 4)
+    static let retainSendIfNewSubscription  = SubscriptionOptions(rawValue: 1 << 4)
+    static let retainDoNotSend              = SubscriptionOptions(rawValue: 2 << 4)
+}
+
+struct SubscribePacket: EncodablePacket {
+    
+    let fixedHeader: FixedHeader
+
+    // Variable Header
+    let packetId: UInt16
+    let propertyLength: UIntVar = 0
+
+    // Payload
+    let topicFilter: String
+    let options: SubscriptionOptions
+
+    public init(topicFilter: String, packetId: UInt16, options: SubscriptionOptions = [.qos0, .retainSendOnSubscribe]) throws {
+        let variableHeaderLength: UInt = 2 + 1 + 0 + 0 + 0 // 2 byte packetIdentifier + property length value + subscriptionID byte + subscription ID byte count + user property byte count
+        let payloadlength = topicFilter.byteCount + 1 // byte count of the topic + byte count of the options for that topic
+        let remainingLength = try UIntVar(payloadlength + variableHeaderLength)
+
+        self.fixedHeader = FixedHeader(controlOptions: [.subscribe, .reserved1], remainingLength: remainingLength)
+        self.packetId = packetId
+        self.topicFilter = topicFilter
+        self.options = options
+    }
+}
+
+// MARK: 3.9 SUBACK – Subscribe acknowledgement
+
+enum SubackReason: UInt8, MQTTDecodable {
+    case grantedQoS0                    = 0x00
+    case grantedQoS1                    = 0x01
+    case grantedQoS2                    = 0x02
+    case unspecifiedError               = 0x80
+    case implementaionSpecificError     = 0x83
+    case notAuthorized                  = 0x87
+    case topicFilterInvalid             = 0x8F
+    case packetIdInUse                  = 0x91
+    case quotaExceeded                  = 0x97
+    case sharedSubscriptionsUnsupported = 0x9E
+    case subscriptionIdsUnsupported     = 0xA1
+    case wildcardsUnsupported           = 0xA2
+}
+    
+struct SubackPacket: DecodablePacket {
+    
+    enum Error: Swift.Error {
+        case notImplemented
+    }
+    
+    let fixedHeader: FixedHeader
+    
+    // Variable Header
+    let packetId: UInt16                // 3.9.2 SUBACK Variable Header
+    let propertyLength: UIntVar         // 3.9.2.1.1 Property Length
+    
+    // Payload
+    var reasonCode: SubackReason
+    
+    init(fromMQTTDecoder decoder: MQTTDecoder) throws {
+        var container = try decoder.unkeyedContainer()
+        self.fixedHeader = try container.decode(FixedHeader.self)
+        self.packetId = try container.decode(UInt16.self)
+        let propertyLength = try container.decode(UIntVar.self)
+        if 0 < Int(propertyLength) {
+            throw Error.notImplemented
+        }
+        self.propertyLength = propertyLength
+        self.reasonCode = try container.decode(SubackReason.self)
+    }
+}
+
 // MARK: 3.12 PINGREQ – PING request
 
 struct PingReqPacket: EncodablePacket {
-    let fixedHeader: FixedHeader = FixedHeader(controlOptions: [.pingreq, .reserved], remainingLength: 0)
+    let fixedHeader: FixedHeader = FixedHeader(controlOptions: [.pingreq, .reserved0], remainingLength: 0)
 }
 
 // MARK: 3.14 DISCONNECT – Disconnect notification
 
 struct DisconnectPacket: EncodablePacket {
-    let fixedHeader: FixedHeader = FixedHeader(controlOptions: [.disconnect, .reserved], remainingLength: 0)
+    let fixedHeader: FixedHeader = FixedHeader(controlOptions: [.disconnect, .reserved0], remainingLength: 0)
 }

@@ -66,7 +66,7 @@ public final class MQTT {
         return transport
     }
     
-    private var messageId: UInt16 = 0
+    private var packetId: UInt16 = 0
     
     // MARK: - Lifecycle
     
@@ -102,7 +102,7 @@ public final class MQTT {
             self.keepAlive()
             completion?(true)
         }
-        messageId = 0
+        packetId = 0
         transportQueue.async {
             self.transport.start()
         }
@@ -114,8 +114,12 @@ public final class MQTT {
         }
     }
     
-//    public func subscribe(to topic: String) { }
-//
+    public func subscribe(to topic: String) {
+        transportQueue.async {
+            self.sendSubscribe(topic)
+        }
+    }
+    
 //    public func unsubscribe(from topic: String) { }
 //
 //    public func publish(to topic: String, message: Data?) { }
@@ -163,6 +167,12 @@ public final class MQTT {
         transport.send(packet: PingReqPacket())
     }
     
+    private func sendSubscribe(_ topicFilter: String) {
+        let sub = try! SubscribePacket(topicFilter: topicFilter, packetId: nextPacketId())
+        print("Sending \(sub)")
+        transport.send(packet: sub)
+    }
+    
     private func sendDisconnect() {
         connectionState = .disconnecting
         transport.send(packet: DisconnectPacket())
@@ -170,9 +180,9 @@ public final class MQTT {
         connectionState = .disconnected
     }
     
-    private func nextMessageId() -> UInt16 {
-        messageId = messageId &+ 1
-        return messageId
+    private func nextPacketId() -> UInt16 {
+        packetId = packetId &+ 1
+        return packetId
     }
     
     private func resetTransport() {
@@ -193,6 +203,15 @@ extension MQTT: TransportDelegate {
             onConnAck = nil
         } else if packet.fixedHeader.controlOptions == .pingresp {
             print("Ping acknowledged")
+        } else if packet.fixedHeader.controlOptions == .suback {
+            print(packet.bytes)
+            let suback = try! MQTTDecoder.decode(SubackPacket.self, data: packet.bytes)
+            switch suback.reasonCode {
+            case .grantedQoS0, .grantedQoS1, .grantedQoS2:
+                print("Subscription successful: \(suback.reasonCode)")
+            default:
+                print("Subscription error: \(suback.reasonCode)")
+            }
         }
     }
 
