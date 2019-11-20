@@ -20,6 +20,7 @@ extension MQTTDecodable {
 class MQTTDecoder {
     fileprivate var data: [UInt8]
     fileprivate var cursor = 0
+    fileprivate var lastReadByteCount = 0
     
     init(data: [UInt8]) {
         self.data = data
@@ -134,6 +135,11 @@ extension MQTTDecoder {
     func read<T>(into: inout T) throws {
         try read(MemoryLayout<T>.size, into: &into)
     }
+    
+    func restoreCursorToPreviousCount() {
+        cursor -= lastReadByteCount
+        lastReadByteCount = 0
+    }
 }
 
 /// Internal methods for decoding raw data.
@@ -150,7 +156,8 @@ extension MQTTDecoder {
             memcpy(into, from, byteCount)
         })
         
-        cursor += byteCount
+        lastReadByteCount = byteCount
+        cursor += lastReadByteCount
     }
 }
 
@@ -183,7 +190,12 @@ extension MQTTDecoder: Decoder {
         }
         
         func decode<T>(_ type: T.Type, forKey key: Key) throws -> T where T : Decodable {
-            return try decoder.decode(T.self)
+            do {
+                return try decoder.decode(type)
+            } catch {
+                decoder.restoreCursorToPreviousCount()
+                throw error
+            }
         }
         
         func decodeNil(forKey key: Key) throws -> Bool {
@@ -219,7 +231,12 @@ extension MQTTDecoder: Decoder {
         var isAtEnd: Bool { return decoder.cursor > (decoder.data.count - 1) }
         
         func decode<T>(_ type: T.Type) throws -> T where T : Decodable {
-            return try decoder.decode(type)
+            do {
+                return try decoder.decode(type)
+            } catch {
+                decoder.restoreCursorToPreviousCount()
+                throw error
+            }
         }
         
         func decodeNil() -> Bool {

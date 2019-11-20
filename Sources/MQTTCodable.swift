@@ -41,9 +41,9 @@ extension FixedWidthInteger where Self: MQTTEncodable {
 }
 
 extension FixedWidthInteger where Self: MQTTDecodable {
-    init(fromMQTTDecoder byteDecoder: MQTTDecoder) throws {
+    init(fromMQTTDecoder decoder: MQTTDecoder) throws {
         var v = Self.init()
-        try byteDecoder.read(into: &v)
+        try decoder.read(into: &v)
         self.init(bigEndian: v)
     }
 }
