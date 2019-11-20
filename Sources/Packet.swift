@@ -18,7 +18,7 @@ fileprivate extension String {
     }
 }
 
-enum QoS: UInt8, MQTTCodable {
+public enum QoS: UInt8, MQTTCodable {
     case qos0
     case qos1
     case qos2
@@ -262,7 +262,7 @@ struct SubscribePacket: EncodablePacket {
 
 // MARK: 3.9 SUBACK – Subscribe acknowledgement
 
-enum SubscriptionError: UInt8, MQTTDecodable, Error {
+public enum SubscriptionError: UInt8, MQTTDecodable, Error {
     case unspecifiedError               = 0x80
     case implementaionSpecificError     = 0x83
     case notAuthorized                  = 0x87

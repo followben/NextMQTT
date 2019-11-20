@@ -121,9 +121,9 @@ public final class MQTT {
         }
     }
     
-    public func subscribe(to topic: String) {
+    public func subscribe(to topic: String, completion: ((Result<QoS, SubscriptionError>) -> Void)? = nil) {
         transportQueue.async {
-            self.sendSubscribe(topic)
+            self.sendSubscribe(topic, completion: completion)
         }
     }
     
