@@ -18,24 +18,23 @@ fileprivate extension String {
     }
 }
 
+enum QoS: UInt8, MQTTCodable {
+    case qos0
+    case qos1
+    case qos2
+}
+
 struct ControlOptions: OptionSet, MQTTCodable {
     let rawValue: UInt8
     
     // Control Packet type
-//    connect =     0x10
-//    connack =     0x20
 //    publish =     0x30
 //    puback =      0x40
 //    pubrec =      0x50
 //    pubrel =      0x60
 //    pubcomp =     0x70
-//    subscribe =   0x80
-//    suback =      0x90
 //    unsubscribe = 0xa0
 //    unsuback =    0xb0
-//    pingreq =     0xc0
-//    pingresp =    0xd0
-//    disconnect =  0xe0
     static let connect      = ControlOptions(rawValue: 1 << 4)
     static let connack      = ControlOptions(rawValue: 2 << 4)
     static let subscribe    = ControlOptions(rawValue: 8 << 4)
@@ -224,9 +223,9 @@ extension ConnackPacket: MQTTDecodable {
 struct SubscriptionOptions: OptionSet, MQTTEncodable {     // 3.8.3.1 Subscription Options
     let rawValue: UInt8
 
-    static let qos0                         = SubscriptionOptions(rawValue: 0)
-    static let qos1                         = SubscriptionOptions(rawValue: 1)
-    static let qos2                         = SubscriptionOptions(rawValue: 2)
+    static let qos0                         = SubscriptionOptions(rawValue: QoS.qos0.rawValue)
+    static let qos1                         = SubscriptionOptions(rawValue: QoS.qos1.rawValue)
+    static let qos2                         = SubscriptionOptions(rawValue: QoS.qos2.rawValue)
     
     static let noLocal                      = SubscriptionOptions(rawValue: 1 << 2)
     
@@ -263,10 +262,7 @@ struct SubscribePacket: EncodablePacket {
 
 // MARK: 3.9 SUBACK – Subscribe acknowledgement
 
-enum SubackReason: UInt8, MQTTDecodable {
-    case grantedQoS0                    = 0x00
-    case grantedQoS1                    = 0x01
-    case grantedQoS2                    = 0x02
+enum SubscriptionError: UInt8, MQTTDecodable, Error {
     case unspecifiedError               = 0x80
     case implementaionSpecificError     = 0x83
     case notAuthorized                  = 0x87
@@ -286,12 +282,11 @@ struct SubackPacket: DecodablePacket {
     
     let fixedHeader: FixedHeader
     
-    // Variable Header
     let packetId: UInt16                // 3.9.2 SUBACK Variable Header
     let propertyLength: UIntVar         // 3.9.2.1.1 Property Length
     
-    // Payload
-    var reasonCode: SubackReason
+    let qos: QoS?
+    let error: SubscriptionError?
     
     init(fromMQTTDecoder decoder: MQTTDecoder) throws {
         var container = try decoder.unkeyedContainer()
@@ -302,7 +297,13 @@ struct SubackPacket: DecodablePacket {
             throw Error.notImplemented
         }
         self.propertyLength = propertyLength
-        self.reasonCode = try container.decode(SubackReason.self)
+        if let qos = try? container.decode(QoS.self) {
+            self.qos = qos
+            self.error = nil
+        } else {
+            self.qos = nil
+            self.error = try container.decode(SubscriptionError.self)
+        }
     }
 }
 

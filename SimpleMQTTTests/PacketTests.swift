@@ -115,7 +115,7 @@ class SubackPacketTests: XCTestCase {
         let suback = try! MQTTDecoder.decode(SubackPacket.self, data: bytes)
         XCTAssert(suback.fixedHeader.controlOptions.contains(.suback))
         XCTAssertEqual(Int(suback.fixedHeader.remainingLength), 4)
-        XCTAssertEqual(suback.reasonCode, .grantedQoS2)
+        XCTAssertEqual(suback.qos, .qos2)
     }
     
     func testSubackPacketErrorDecode() {
@@ -123,7 +123,7 @@ class SubackPacketTests: XCTestCase {
         let suback = try! MQTTDecoder.decode(SubackPacket.self, data: bytes)
         XCTAssert(suback.fixedHeader.controlOptions.contains(.suback))
         XCTAssertEqual(Int(suback.fixedHeader.remainingLength), 4)
-        XCTAssertEqual(suback.reasonCode, .topicFilterInvalid)
+        XCTAssertEqual(suback.error, .topicFilterInvalid)
     }
 
     // this test will need to go when user properties and/ or reason string support is addded

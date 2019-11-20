@@ -53,8 +53,6 @@ public final class MQTT {
         options[.secureConnection] as? Bool ?? false
     }
     
-    private var onConnAck: (() -> Void)?
-    
     private let transportQueue = DispatchQueue(label: "com.simplemqtt.transport")
     
     private var _transport: Transport?
@@ -67,6 +65,15 @@ public final class MQTT {
     }
     
     private var packetId: UInt16 = 0
+    
+    enum CompletionHandler {
+        case noResultHandler(() -> Void)
+        case emptyResultHandler((Result<Void, Error>) -> Void)
+        case subscriptionResultHandler(((Result<QoS, SubscriptionError>) -> Void))
+    }
+    
+    private var connAckHandler: (() -> Void)?
+    private var completionHandlers: [UInt16: CompletionHandler] = [:]
     
     // MARK: - Lifecycle
     
@@ -96,7 +103,7 @@ public final class MQTT {
     
     public func connect(completion: ((_ success: Bool) -> Void)? = nil) {
         connectionState = .connecting
-        onConnAck = { [weak self] in
+        connAckHandler = { [weak self] in
             guard let self = self else { return }
             self.connectionState = .connected
             self.keepAlive()
@@ -139,7 +146,7 @@ public final class MQTT {
         assert(connectionState == .dropped || connectionState == .reconnecting)
         if connectionState == .dropped {
             connectionState = .reconnecting
-            onConnAck = { [weak self] in
+            connAckHandler = { [weak self] in
                 guard let self = self else { return }
                 self.connectionState = .connected
                 self.keepAlive()
@@ -167,8 +174,11 @@ public final class MQTT {
         transport.send(packet: PingReqPacket())
     }
     
-    private func sendSubscribe(_ topicFilter: String) {
+    private func sendSubscribe(_ topicFilter: String, completion: ((Result<QoS, SubscriptionError>) -> Void)? = nil) {
         let sub = try! SubscribePacket(topicFilter: topicFilter, packetId: nextPacketId())
+        if let handler = completion {
+            completionHandlers[sub.packetId] = CompletionHandler.subscriptionResultHandler(handler)
+        }
         print("Sending \(sub)")
         transport.send(packet: sub)
     }
@@ -198,20 +208,35 @@ extension MQTT: TransportDelegate {
     }
 
     func didReceive(packet: MQTTPacket, transport: Transport) {
-        if packet.fixedHeader.controlOptions == .connack, let connackClosure = onConnAck {
-            connackClosure()
-            onConnAck = nil
-        } else if packet.fixedHeader.controlOptions == .pingresp {
-            print("Ping acknowledged")
-        } else if packet.fixedHeader.controlOptions == .suback {
-            print(packet.bytes)
-            let suback = try! MQTTDecoder.decode(SubackPacket.self, data: packet.bytes)
-            switch suback.reasonCode {
-            case .grantedQoS0, .grantedQoS1, .grantedQoS2:
-                print("Subscription successful: \(suback.reasonCode)")
-            default:
-                print("Subscription error: \(suback.reasonCode)")
+        switch packet.fixedHeader.controlOptions {
+        case .connack:
+            if let connackClosure = connAckHandler {
+                connackClosure()
+                connAckHandler = nil
             }
+        case .suback:
+            let result = Result { try MQTTDecoder.decode(SubackPacket.self, data: packet.bytes) }
+            guard case .success(let suback) = result else {
+                let error = result.mapError { $0 }
+                print("Error decoding suback: \(error)")
+                return
+            }
+            
+            var handler: ((Result<QoS, SubscriptionError>) -> Void)?
+            
+            if case .subscriptionResultHandler(let localHandler) = completionHandlers.removeValue(forKey: suback.packetId) {
+                handler = localHandler
+            }
+            if let qos = suback.qos {
+                print("Subscription successful: \(qos)")
+                handler?(.success(qos))
+            } else if let error = suback.error {
+                print("Subscription error: \(error)")
+                handler?(.failure(error))
+            }
+            
+        default:
+            print("Received \(packet.fixedHeader.controlOptions)")
         }
     }
 
