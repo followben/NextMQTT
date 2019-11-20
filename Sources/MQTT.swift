@@ -66,16 +66,11 @@ public final class MQTT {
     
     private var packetId: UInt16 = 0
     
-    enum CompletionHandler {
-        case noResultHandler(() -> Void)
-        case emptyResultHandler((Result<Void, Error>) -> Void)
-        case subscriptionResultHandler(((Result<QoS, SubscriptionError>) -> Void))
-    }
-    
     private var connAckHandler: (() -> Void)?
-    private var completionHandlers: [UInt16: CompletionHandler] = [:]
+
+    private var handlerCoordinator = CompletionHandlerCoordinator()
     
-    // MARK: - Lifecycle
+    // MARK: Lifecycle
     
     deinit {
         disconnect()
@@ -99,7 +94,11 @@ public final class MQTT {
         }
     }
     
-    // MARK: - Public Methods
+}
+
+// MARK: - Public Methods
+
+extension MQTT {
     
     public func connect(completion: ((_ success: Bool) -> Void)? = nil) {
         connectionState = .connecting
@@ -131,8 +130,55 @@ public final class MQTT {
 //
 //    public func publish(to topic: String, message: Data?) { }
     
-    // MARK: - Private Methods
+}
+
+// MARK: - iVar Helpers
+
+public enum CompletionHandler {
+    case noResultHandler(() -> Void)
+    case emptyResultHandler((Result<Void, Error>) -> Void)
+    case subscriptionResultHandler(((Result<QoS, SubscriptionError>) -> Void))
+}
+
+class CompletionHandlerCoordinator {
+    private var completionHandlers: [UInt16: CompletionHandler] = [:]
+    private let completionHandlerAccessQueue = DispatchQueue(label: "com.simplemqtt.completion", attributes: .concurrent)
+
+    fileprivate func store(completionHandler: CompletionHandler, for packetId: UInt16) {
+        completionHandlerAccessQueue.async(flags:.barrier) {
+            self.completionHandlers[packetId] = completionHandler
+        }
+    }
+
+    fileprivate func retrieveCompletionHandler(for packetId: UInt16) -> CompletionHandler? {
+        var handler: CompletionHandler?
+        completionHandlerAccessQueue.sync {
+            handler = self.completionHandlers[packetId]
+        }
+        completionHandlerAccessQueue.async(flags:.barrier) {
+            self.completionHandlers[packetId] = nil
+        }
+        return handler
+    }
+}
+
+extension MQTT {
     
+    private func nextPacketId() -> UInt16 {
+        packetId = packetId &+ 1
+        return packetId
+    }
+    
+    private func resetTransport() {
+        _transport = nil
+    }
+
+}
+
+// MARK: - Sending
+
+extension MQTT {
+
     private func keepAlive() {
         let deadline = DispatchTime.now() + .seconds(Int(pingInterval / 2))
         transportQueue.asyncAfter(deadline: deadline) { [weak self] in
@@ -177,7 +223,7 @@ public final class MQTT {
     private func sendSubscribe(_ topicFilter: String, completion: ((Result<QoS, SubscriptionError>) -> Void)? = nil) {
         let sub = try! SubscribePacket(topicFilter: topicFilter, packetId: nextPacketId())
         if let handler = completion {
-            completionHandlers[sub.packetId] = CompletionHandler.subscriptionResultHandler(handler)
+            handlerCoordinator.store(completionHandler: CompletionHandler.subscriptionResultHandler(handler), for: sub.packetId)
         }
         print("Sending \(sub)")
         transport.send(packet: sub)
@@ -190,17 +236,10 @@ public final class MQTT {
         connectionState = .disconnected
     }
     
-    private func nextPacketId() -> UInt16 {
-        packetId = packetId &+ 1
-        return packetId
-    }
-    
-    private func resetTransport() {
-        _transport = nil
-    }
 }
 
-// MARK: - TransportDelegate methods
+
+// MARK: - Receiving (TransportDelegate)
 
 extension MQTT: TransportDelegate {
     func didStart(transport: Transport) {
@@ -223,10 +262,10 @@ extension MQTT: TransportDelegate {
             }
             
             var handler: ((Result<QoS, SubscriptionError>) -> Void)?
-            
-            if case .subscriptionResultHandler(let localHandler) = completionHandlers.removeValue(forKey: suback.packetId) {
+            if case .subscriptionResultHandler(let localHandler) = handlerCoordinator.retrieveCompletionHandler(for: suback.packetId) {
                 handler = localHandler
             }
+            
             if let qos = suback.qos {
                 print("Subscription successful: \(qos)")
                 handler?(.success(qos))
