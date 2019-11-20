@@ -67,21 +67,12 @@ public final class MQTT {
     private var packetId: UInt16 = 0
     
     private var connAckHandler: (() -> Void)?
-
     private var handlerCoordinator = CompletionHandlerCoordinator()
     
     // MARK: Lifecycle
     
     deinit {
         disconnect()
-    }
-    
-    public convenience init(host: String, port: Int, options: [OptionsKey: Any]? = nil) {
-        self.init(host: host, port: port, username: nil, password: nil, optionsDict: options)
-    }
-    
-    public convenience init(host: String, port: Int, username: String, password: String, options: [OptionsKey: Any]? = nil) {
-        self.init(host: host, port: port, username: username, password: password, optionsDict: options)
     }
     
     private init(host: String, port: Int, username: String? = nil, password: String? = nil, optionsDict: [OptionsKey: Any]? = nil) {
@@ -98,9 +89,17 @@ public final class MQTT {
 
 // MARK: - Public Methods
 
-extension MQTT {
+public extension MQTT {
     
-    public func connect(completion: ((_ success: Bool) -> Void)? = nil) {
+    convenience init(host: String, port: Int, options: [OptionsKey: Any]? = nil) {
+        self.init(host: host, port: port, username: nil, password: nil, optionsDict: options)
+    }
+    
+    convenience init(host: String, port: Int, username: String, password: String, options: [OptionsKey: Any]? = nil) {
+        self.init(host: host, port: port, username: username, password: password, optionsDict: options)
+    }
+    
+    func connect(completion: ((_ success: Bool) -> Void)? = nil) {
         connectionState = .connecting
         connAckHandler = { [weak self] in
             guard let self = self else { return }
@@ -114,13 +113,13 @@ extension MQTT {
         }
     }
     
-    public func disconnect() {
+    func disconnect() {
         transportQueue.async {
             self.sendDisconnect()
         }
     }
     
-    public func subscribe(to topic: String, completion: ((Result<QoS, SubscriptionError>) -> Void)? = nil) {
+    func subscribe(to topic: String, completion: ((Result<QoS, SubscriptionError>) -> Void)? = nil) {
         transportQueue.async {
             self.sendSubscribe(topic, completion: completion)
         }
@@ -134,42 +133,14 @@ extension MQTT {
 
 // MARK: - iVar Helpers
 
-public enum CompletionHandler {
-    case noResultHandler(() -> Void)
-    case emptyResultHandler((Result<Void, Error>) -> Void)
-    case subscriptionResultHandler(((Result<QoS, SubscriptionError>) -> Void))
-}
-
-class CompletionHandlerCoordinator {
-    private var completionHandlers: [UInt16: CompletionHandler] = [:]
-    private let completionHandlerAccessQueue = DispatchQueue(label: "com.simplemqtt.completion", attributes: .concurrent)
-
-    fileprivate func store(completionHandler: CompletionHandler, for packetId: UInt16) {
-        completionHandlerAccessQueue.async(flags:.barrier) {
-            self.completionHandlers[packetId] = completionHandler
-        }
-    }
-
-    fileprivate func retrieveCompletionHandler(for packetId: UInt16) -> CompletionHandler? {
-        var handler: CompletionHandler?
-        completionHandlerAccessQueue.sync {
-            handler = self.completionHandlers[packetId]
-        }
-        completionHandlerAccessQueue.async(flags:.barrier) {
-            self.completionHandlers[packetId] = nil
-        }
-        return handler
-    }
-}
-
-extension MQTT {
+private extension MQTT {
     
-    private func nextPacketId() -> UInt16 {
+    func nextPacketId() -> UInt16 {
         packetId = packetId &+ 1
         return packetId
     }
     
-    private func resetTransport() {
+    func resetTransport() {
         _transport = nil
     }
 
@@ -177,9 +148,9 @@ extension MQTT {
 
 // MARK: - Sending
 
-extension MQTT {
+private extension MQTT {
 
-    private func keepAlive() {
+    func keepAlive() {
         let deadline = DispatchTime.now() + .seconds(Int(pingInterval / 2))
         transportQueue.asyncAfter(deadline: deadline) { [weak self] in
             guard let self = self, self.connectionState == .connected else { return }
@@ -188,7 +159,7 @@ extension MQTT {
         }
     }
     
-    private func reconnect() {
+    func reconnect() {
         assert(connectionState == .dropped || connectionState == .reconnecting)
         if connectionState == .dropped {
             connectionState = .reconnecting
@@ -210,17 +181,17 @@ extension MQTT {
         transport.start()
     }
     
-    private func sendConnect() {
+    func sendConnect() {
         let conn = try! ConnectPacket(clientId: clientId, username: username, password: password, keepAlive: pingInterval)
         transport.send(packet: conn)
     }
 
-    private func sendPing() {
+    func sendPing() {
         print("Pinging...")
         transport.send(packet: PingReqPacket())
     }
     
-    private func sendSubscribe(_ topicFilter: String, completion: ((Result<QoS, SubscriptionError>) -> Void)? = nil) {
+    func sendSubscribe(_ topicFilter: String, completion: ((Result<QoS, SubscriptionError>) -> Void)? = nil) {
         let sub = try! SubscribePacket(topicFilter: topicFilter, packetId: nextPacketId())
         if let handler = completion {
             handlerCoordinator.store(completionHandler: CompletionHandler.subscriptionResultHandler(handler), for: sub.packetId)
@@ -229,15 +200,13 @@ extension MQTT {
         transport.send(packet: sub)
     }
     
-    private func sendDisconnect() {
+    func sendDisconnect() {
         connectionState = .disconnecting
         transport.send(packet: DisconnectPacket())
         transport.stop()
         connectionState = .disconnected
     }
-    
 }
-
 
 // MARK: - Receiving (TransportDelegate)
 
@@ -287,5 +256,35 @@ extension MQTT: TransportDelegate {
         } else {
             print("TODO: handle transport error")
         }
+    }
+}
+
+// MARK: - Helper classes
+
+fileprivate enum CompletionHandler {
+    case noResultHandler(() -> Void)
+    case emptyResultHandler((Result<Void, Error>) -> Void)
+    case subscriptionResultHandler(((Result<QoS, SubscriptionError>) -> Void))
+}
+
+fileprivate class CompletionHandlerCoordinator {
+    private var completionHandlers: [UInt16: CompletionHandler] = [:]
+    private let completionHandlerAccessQueue = DispatchQueue(label: "com.simplemqtt.completion", attributes: .concurrent)
+
+    fileprivate func store(completionHandler: CompletionHandler, for packetId: UInt16) {
+        completionHandlerAccessQueue.async(flags:.barrier) {
+            self.completionHandlers[packetId] = completionHandler
+        }
+    }
+
+    fileprivate func retrieveCompletionHandler(for packetId: UInt16) -> CompletionHandler? {
+        var handler: CompletionHandler?
+        completionHandlerAccessQueue.sync {
+            handler = self.completionHandlers[packetId]
+        }
+        completionHandlerAccessQueue.async(flags:.barrier) {
+            self.completionHandlers[packetId] = nil
+        }
+        return handler
     }
 }
