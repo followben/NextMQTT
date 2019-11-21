@@ -1,6 +1,6 @@
 //
 //  Packet.swift
-//  SimpleMQTT iOS
+//  NextMQTT iOS
 //
 //  Created by Ben Stovold on 4/11/19.
 //
@@ -18,11 +18,7 @@ fileprivate extension String {
     }
 }
 
-public enum QoS: UInt8, MQTTCodable {
-    case qos0
-    case qos1
-    case qos2
-}
+extension MQTT.QoS: MQTTCodable {}
 
 struct ControlOptions: OptionSet, MQTTCodable {
     let rawValue: UInt8
@@ -53,9 +49,9 @@ struct ControlOptions: OptionSet, MQTTCodable {
     
     // PUBLISH
     static let retain       = ControlOptions(rawValue: 1 << 0)
-    static let qos0         = ControlOptions(rawValue: QoS.qos0.rawValue << 1)
-    static let qos1         = ControlOptions(rawValue: QoS.qos1.rawValue << 1)
-    static let qos2         = ControlOptions(rawValue: QoS.qos2.rawValue << 1)
+    static let qos0         = ControlOptions(rawValue: MQTT.QoS.qos0.rawValue << 1)
+    static let qos1         = ControlOptions(rawValue: MQTT.QoS.qos1.rawValue << 1)
+    static let qos2         = ControlOptions(rawValue: MQTT.QoS.qos2.rawValue << 1)
     static let dup          = ControlOptions(rawValue: 1 << 2)
 }
 
@@ -260,9 +256,9 @@ struct PublishPacket: CodablePacket {
 struct SubscribeOptions: OptionSet, MQTTEncodable {     // 3.8.3.1 Subscription Options
     let rawValue: UInt8
 
-    static let qos0                         = SubscribeOptions(rawValue: QoS.qos0.rawValue)
-    static let qos1                         = SubscribeOptions(rawValue: QoS.qos1.rawValue)
-    static let qos2                         = SubscribeOptions(rawValue: QoS.qos2.rawValue)
+    static let qos0                         = SubscribeOptions(rawValue: MQTT.QoS.qos0.rawValue)
+    static let qos1                         = SubscribeOptions(rawValue: MQTT.QoS.qos1.rawValue)
+    static let qos2                         = SubscribeOptions(rawValue: MQTT.QoS.qos2.rawValue)
     
     static let noLocal                      = SubscribeOptions(rawValue: 1 << 2)
     
@@ -299,18 +295,22 @@ struct SubscribePacket: EncodablePacket {
 
 // MARK: 3.9 SUBACK – Subscribe acknowledgement
 
-public enum SubscribeError: UInt8, MQTTDecodable, Error {
-    case unspecifiedError               = 0x80
-    case implementaionSpecificError     = 0x83
-    case notAuthorized                  = 0x87
-    case topicFilterInvalid             = 0x8F
-    case packetIdInUse                  = 0x91
-    case quotaExceeded                  = 0x97
-    case sharedSubscriptionsUnsupported = 0x9E
-    case subscriptionIdsUnsupported     = 0xA1
-    case wildcardsUnsupported           = 0xA2
+public extension MQTT {
+    enum SubscribeError: UInt8, Error {
+        case unspecifiedError               = 0x80
+        case implementaionSpecificError     = 0x83
+        case notAuthorized                  = 0x87
+        case topicFilterInvalid             = 0x8F
+        case packetIdInUse                  = 0x91
+        case quotaExceeded                  = 0x97
+        case sharedSubscriptionsUnsupported = 0x9E
+        case subscriptionIdsUnsupported     = 0xA1
+        case wildcardsUnsupported           = 0xA2
+    }
 }
-    
+
+extension MQTT.SubscribeError: MQTTDecodable {}
+
 struct SubackPacket: DecodablePacket {
     
     enum Error: Swift.Error {
@@ -322,8 +322,8 @@ struct SubackPacket: DecodablePacket {
     let packetId: UInt16                // 3.9.2 SUBACK Variable Header
     let propertyLength: UIntVar         // 3.9.2.1.1 Property Length
     
-    let qos: QoS?
-    let error: SubscribeError?
+    let qos: MQTT.QoS?
+    let error: MQTT.SubscribeError?
     
     init(fromMQTTDecoder decoder: MQTTDecoder) throws {
         var container = try decoder.unkeyedContainer()
@@ -334,12 +334,12 @@ struct SubackPacket: DecodablePacket {
             throw Error.notImplemented
         }
         self.propertyLength = propertyLength
-        if let qos = try? container.decode(QoS.self) {
+        if let qos = try? container.decode(MQTT.QoS.self) {
             self.qos = qos
             self.error = nil
         } else {
             self.qos = nil
-            self.error = try container.decode(SubscribeError.self)
+            self.error = try container.decode(MQTT.SubscribeError.self)
         }
     }
 }

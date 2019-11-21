@@ -1,13 +1,13 @@
 //
 //  IntegerTests.swift
-//  SimpleMQTTTests
+//  NextMQTTTests
 //
 //  Created by Ben Stovold on 23/10/19.
 //
 
 import XCTest
 
-@testable import SimpleMQTT
+@testable import NextMQTT
 
 final class IntegerTests: XCTestCase {
 

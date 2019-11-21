@@ -7,12 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		9F496A58235FC4F20054F473 /* SimpleMQTT.h in Headers */ = {isa = PBXBuildFile; fileRef = 9F496A56235FC4F20054F473 /* SimpleMQTT.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		9F496A6B235FC6150054F473 /* SimpleMQTT.h in Headers */ = {isa = PBXBuildFile; fileRef = 9F496A56235FC4F20054F473 /* SimpleMQTT.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		9F496A58235FC4F20054F473 /* NextMQTT.h in Headers */ = {isa = PBXBuildFile; fileRef = 9F496A56235FC4F20054F473 /* NextMQTT.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		9F496A6B235FC6150054F473 /* NextMQTT.h in Headers */ = {isa = PBXBuildFile; fileRef = 9F496A56235FC4F20054F473 /* NextMQTT.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		9F496A6E235FC7CF0054F473 /* MQTT.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F496A6D235FC7CF0054F473 /* MQTT.swift */; };
 		9F496A6F235FC7CF0054F473 /* MQTT.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F496A6D235FC7CF0054F473 /* MQTT.swift */; };
 		9F496A77235FC9930054F473 /* IntegerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F496A76235FC9930054F473 /* IntegerTests.swift */; };
-		9F496A79235FC9930054F473 /* SimpleMQTT.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9F496A53235FC4F20054F473 /* SimpleMQTT.framework */; };
+		9F496A79235FC9930054F473 /* NextMQTT.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9F496A53235FC4F20054F473 /* NextMQTT.framework */; };
 		9F50D7D3236FD6F0007D96C2 /* MQTTCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F50D7D0236FD6F0007D96C2 /* MQTTCodable.swift */; };
 		9F50D7D4236FD6F0007D96C2 /* MQTTDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F50D7D1236FD6F0007D96C2 /* MQTTDecoder.swift */; };
 		9F50D7D5236FD6F0007D96C2 /* MQTTEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F50D7D2236FD6F0007D96C2 /* MQTTEncoder.swift */; };
@@ -40,12 +40,12 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		9F496A53235FC4F20054F473 /* SimpleMQTT.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SimpleMQTT.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		9F496A56235FC4F20054F473 /* SimpleMQTT.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SimpleMQTT.h; sourceTree = "<group>"; };
-		9F496A61235FC50C0054F473 /* SimpleMQTT.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SimpleMQTT.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		9F496A53235FC4F20054F473 /* NextMQTT.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = NextMQTT.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		9F496A56235FC4F20054F473 /* NextMQTT.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NextMQTT.h; sourceTree = "<group>"; };
+		9F496A61235FC50C0054F473 /* NextMQTT.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = NextMQTT.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		9F496A6A235FC5690054F473 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9F496A6D235FC7CF0054F473 /* MQTT.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MQTT.swift; sourceTree = "<group>"; };
-		9F496A74235FC9930054F473 /* SimpleMQTTTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SimpleMQTTTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9F496A74235FC9930054F473 /* NextMQTTTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NextMQTTTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9F496A76235FC9930054F473 /* IntegerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegerTests.swift; sourceTree = "<group>"; };
 		9F496A78235FC9930054F473 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9F50D7D0236FD6F0007D96C2 /* MQTTCodable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MQTTCodable.swift; sourceTree = "<group>"; };
@@ -77,7 +77,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9F496A79235FC9930054F473 /* SimpleMQTT.framework in Frameworks */,
+				9F496A79235FC9930054F473 /* NextMQTT.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -88,7 +88,7 @@
 			isa = PBXGroup;
 			children = (
 				9F496A69235FC5690054F473 /* Sources */,
-				9F496A75235FC9930054F473 /* SimpleMQTTTests */,
+				9F496A75235FC9930054F473 /* NextMQTTTests */,
 				9F496A54235FC4F20054F473 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -96,9 +96,9 @@
 		9F496A54235FC4F20054F473 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				9F496A53235FC4F20054F473 /* SimpleMQTT.framework */,
-				9F496A61235FC50C0054F473 /* SimpleMQTT.framework */,
-				9F496A74235FC9930054F473 /* SimpleMQTTTests.xctest */,
+				9F496A53235FC4F20054F473 /* NextMQTT.framework */,
+				9F496A61235FC50C0054F473 /* NextMQTT.framework */,
+				9F496A74235FC9930054F473 /* NextMQTTTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -121,13 +121,13 @@
 		9F496A6C235FC66E0054F473 /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
-				9F496A56235FC4F20054F473 /* SimpleMQTT.h */,
+				9F496A56235FC4F20054F473 /* NextMQTT.h */,
 				9F496A6A235FC5690054F473 /* Info.plist */,
 			);
 			name = "Supporting Files";
 			sourceTree = "<group>";
 		};
-		9F496A75235FC9930054F473 /* SimpleMQTTTests */ = {
+		9F496A75235FC9930054F473 /* NextMQTTTests */ = {
 			isa = PBXGroup;
 			children = (
 				9F496A76235FC9930054F473 /* IntegerTests.swift */,
@@ -135,7 +135,7 @@
 				9F5EAF8D2377C51D006BE2CC /* TransportTests.swift */,
 				9F496A78235FC9930054F473 /* Info.plist */,
 			);
-			path = SimpleMQTTTests;
+			path = NextMQTTTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -145,7 +145,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9F496A58235FC4F20054F473 /* SimpleMQTT.h in Headers */,
+				9F496A58235FC4F20054F473 /* NextMQTT.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -153,16 +153,16 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9F496A6B235FC6150054F473 /* SimpleMQTT.h in Headers */,
+				9F496A6B235FC6150054F473 /* NextMQTT.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
-		9F496A52235FC4F20054F473 /* SimpleMQTT iOS */ = {
+		9F496A52235FC4F20054F473 /* NextMQTT iOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 9F496A59235FC4F20054F473 /* Build configuration list for PBXNativeTarget "SimpleMQTT iOS" */;
+			buildConfigurationList = 9F496A59235FC4F20054F473 /* Build configuration list for PBXNativeTarget "NextMQTT iOS" */;
 			buildPhases = (
 				9F496A4E235FC4F20054F473 /* Headers */,
 				9F496A4F235FC4F20054F473 /* Sources */,
@@ -173,14 +173,14 @@
 			);
 			dependencies = (
 			);
-			name = "SimpleMQTT iOS";
+			name = "NextMQTT iOS";
 			productName = "Wren iOS";
-			productReference = 9F496A53235FC4F20054F473 /* SimpleMQTT.framework */;
+			productReference = 9F496A53235FC4F20054F473 /* NextMQTT.framework */;
 			productType = "com.apple.product-type.framework";
 		};
-		9F496A60235FC50C0054F473 /* SimpleMQTT watchOS */ = {
+		9F496A60235FC50C0054F473 /* NextMQTT watchOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 9F496A66235FC50C0054F473 /* Build configuration list for PBXNativeTarget "SimpleMQTT watchOS" */;
+			buildConfigurationList = 9F496A66235FC50C0054F473 /* Build configuration list for PBXNativeTarget "NextMQTT watchOS" */;
 			buildPhases = (
 				9F496A5C235FC50C0054F473 /* Headers */,
 				9F496A5D235FC50C0054F473 /* Sources */,
@@ -191,14 +191,14 @@
 			);
 			dependencies = (
 			);
-			name = "SimpleMQTT watchOS";
+			name = "NextMQTT watchOS";
 			productName = "Wren watchOS";
-			productReference = 9F496A61235FC50C0054F473 /* SimpleMQTT.framework */;
+			productReference = 9F496A61235FC50C0054F473 /* NextMQTT.framework */;
 			productType = "com.apple.product-type.framework";
 		};
-		9F496A73235FC9930054F473 /* SimpleMQTTTests */ = {
+		9F496A73235FC9930054F473 /* NextMQTTTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 9F496A7C235FC9930054F473 /* Build configuration list for PBXNativeTarget "SimpleMQTTTests" */;
+			buildConfigurationList = 9F496A7C235FC9930054F473 /* Build configuration list for PBXNativeTarget "NextMQTTTests" */;
 			buildPhases = (
 				9F496A70235FC9930054F473 /* Sources */,
 				9F496A71235FC9930054F473 /* Frameworks */,
@@ -209,9 +209,9 @@
 			dependencies = (
 				9F496A7B235FC9930054F473 /* PBXTargetDependency */,
 			);
-			name = SimpleMQTTTests;
+			name = NextMQTTTests;
 			productName = WrenTests;
-			productReference = 9F496A74235FC9930054F473 /* SimpleMQTTTests.xctest */;
+			productReference = 9F496A74235FC9930054F473 /* NextMQTTTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
@@ -236,7 +236,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 9F496A4B235FC4B60054F473 /* Build configuration list for PBXProject "SimpleMQTT" */;
+			buildConfigurationList = 9F496A4B235FC4B60054F473 /* Build configuration list for PBXProject "NextMQTT" */;
 			compatibilityVersion = "Xcode 9.3";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -249,9 +249,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				9F496A52235FC4F20054F473 /* SimpleMQTT iOS */,
-				9F496A60235FC50C0054F473 /* SimpleMQTT watchOS */,
-				9F496A73235FC9930054F473 /* SimpleMQTTTests */,
+				9F496A52235FC4F20054F473 /* NextMQTT iOS */,
+				9F496A60235FC50C0054F473 /* NextMQTT watchOS */,
+				9F496A73235FC9930054F473 /* NextMQTTTests */,
 			);
 		};
 /* End PBXProject section */
@@ -324,7 +324,7 @@
 /* Begin PBXTargetDependency section */
 		9F496A7B235FC9930054F473 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 9F496A52235FC4F20054F473 /* SimpleMQTT iOS */;
+			target = 9F496A52235FC4F20054F473 /* NextMQTT iOS */;
 			targetProxy = 9F496A7A235FC9930054F473 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -466,8 +466,8 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.flytehq.SimpleMQTT-iOS";
-				PRODUCT_NAME = SimpleMQTT;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.flytehq.NextMQTT-iOS";
+				PRODUCT_NAME = NextMQTT;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
@@ -540,8 +540,8 @@
 				);
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.flytehq.SimpleMQTT-iOS";
-				PRODUCT_NAME = SimpleMQTT;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.flytehq.NextMQTT-iOS";
+				PRODUCT_NAME = NextMQTT;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -621,8 +621,8 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.flytehq.SimpleMQTT-watchOS";
-				PRODUCT_NAME = SimpleMQTT;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.flytehq.NextMQTT-watchOS";
+				PRODUCT_NAME = NextMQTT;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
@@ -695,8 +695,8 @@
 				);
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.flytehq.SimpleMQTT-watchOS";
-				PRODUCT_NAME = SimpleMQTT;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.flytehq.NextMQTT-watchOS";
+				PRODUCT_NAME = NextMQTT;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -763,7 +763,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				INFOPLIST_FILE = SimpleMQTTTests/Info.plist;
+				INFOPLIST_FILE = NextMQTTTests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -773,7 +773,7 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.flytehq.SimpleMQTTTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.flytehq.NextMQTTTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
@@ -830,7 +830,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				INFOPLIST_FILE = SimpleMQTTTests/Info.plist;
+				INFOPLIST_FILE = NextMQTTTests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -839,7 +839,7 @@
 				);
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.flytehq.SimpleMQTTTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.flytehq.NextMQTTTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -853,7 +853,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		9F496A4B235FC4B60054F473 /* Build configuration list for PBXProject "SimpleMQTT" */ = {
+		9F496A4B235FC4B60054F473 /* Build configuration list for PBXProject "NextMQTT" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				9F496A4C235FC4B60054F473 /* Debug */,
@@ -862,7 +862,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		9F496A59235FC4F20054F473 /* Build configuration list for PBXNativeTarget "SimpleMQTT iOS" */ = {
+		9F496A59235FC4F20054F473 /* Build configuration list for PBXNativeTarget "NextMQTT iOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				9F496A5A235FC4F20054F473 /* Debug */,
@@ -871,7 +871,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		9F496A66235FC50C0054F473 /* Build configuration list for PBXNativeTarget "SimpleMQTT watchOS" */ = {
+		9F496A66235FC50C0054F473 /* Build configuration list for PBXNativeTarget "NextMQTT watchOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				9F496A67235FC50C0054F473 /* Debug */,
@@ -880,7 +880,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		9F496A7C235FC9930054F473 /* Build configuration list for PBXNativeTarget "SimpleMQTTTests" */ = {
+		9F496A7C235FC9930054F473 /* Build configuration list for PBXNativeTarget "NextMQTTTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				9F496A7D235FC9930054F473 /* Debug */,

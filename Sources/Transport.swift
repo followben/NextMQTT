@@ -1,6 +1,6 @@
 //
 //  Transport.swift
-//  SimpleMQTT
+//  NextMQTT
 //
 //  Created by Ben Stovold on 6/11/19.
 //

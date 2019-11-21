@@ -1,1 +1,1 @@
-# SimpleMQTT
+# NextMQTT

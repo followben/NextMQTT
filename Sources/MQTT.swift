@@ -1,6 +1,6 @@
 //
 //  MQTT.swift
-//  SimpleMQTT
+//  NextMQTT
 //
 //  Created by Ben Stovold on 23/10/19.
 //
@@ -14,6 +14,12 @@ public final class MQTT {
     }
     
     public var onMessage: ((String, Data?) -> Void)?
+    
+    public enum QoS: UInt8 {
+        case qos0
+        case qos1
+        case qos2
+    }
     
     private enum ConnectionState {
         case notConnected
@@ -308,31 +314,33 @@ extension MQTT: TransportDelegate {
 
 // MARK: - Helper classes
 
-fileprivate enum CompletionHandler {
-    case emptyHandler(() -> Void)
-    case errorHandler((Error?) -> Void)
-    case subscriptionResultHandler(((Result<QoS, SubscribeError>) -> Void))
-}
-
-fileprivate class CompletionHandlerCoordinator {
-    private var completionHandlers: [UInt16: CompletionHandler] = [:]
-    private let completionHandlerAccessQueue = DispatchQueue(label: "com.simplemqtt.completion", attributes: .concurrent)
-
-    // TODO: add timeout errors for completion handler types?
-    fileprivate func store(completionHandler: CompletionHandler, for packetId: UInt16) {
-        completionHandlerAccessQueue.async(flags:.barrier) {
-            self.completionHandlers[packetId] = completionHandler
-        }
+fileprivate extension MQTT {
+    enum CompletionHandler {
+        case emptyHandler(() -> Void)
+        case errorHandler((Error?) -> Void)
+        case subscriptionResultHandler(((Result<QoS, SubscribeError>) -> Void))
     }
 
-    fileprivate func retrieveCompletionHandler(for packetId: UInt16) -> CompletionHandler? {
-        var handler: CompletionHandler?
-        completionHandlerAccessQueue.sync {
-            handler = self.completionHandlers[packetId]
+    class CompletionHandlerCoordinator {
+        private var completionHandlers: [UInt16: CompletionHandler] = [:]
+        private let completionHandlerAccessQueue = DispatchQueue(label: "com.simplemqtt.completion", attributes: .concurrent)
+
+        // TODO: add timeout errors for completion handler types?
+        fileprivate func store(completionHandler: CompletionHandler, for packetId: UInt16) {
+            completionHandlerAccessQueue.async(flags:.barrier) {
+                self.completionHandlers[packetId] = completionHandler
+            }
         }
-        completionHandlerAccessQueue.async(flags:.barrier) {
-            self.completionHandlers[packetId] = nil
+
+        fileprivate func retrieveCompletionHandler(for packetId: UInt16) -> CompletionHandler? {
+            var handler: CompletionHandler?
+            completionHandlerAccessQueue.sync {
+                handler = self.completionHandlers[packetId]
+            }
+            completionHandlerAccessQueue.async(flags:.barrier) {
+                self.completionHandlers[packetId] = nil
+            }
+            return handler
         }
-        return handler
     }
 }

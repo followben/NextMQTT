@@ -1,13 +1,13 @@
 //
 //  TransportTests.swift
-//  SimpleMQTTTests
+//  NextMQTTTests
 //
 //  Created by Ben Stovold on 10/11/19.
 //
 
 import XCTest
 
-@testable import SimpleMQTT
+@testable import NextMQTT
 
 class TestServer : NSObject, NetServiceDelegate {
     

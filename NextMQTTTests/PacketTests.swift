@@ -1,13 +1,13 @@
 //
 //  PacketTests.swift
-//  SimpleMQTTTests
+//  NextMQTTTests
 //
 //  Created by Ben Stovold on 4/11/19.
 //
 
 import XCTest
 
-@testable import SimpleMQTT
+@testable import NextMQTT
 
 class FixedHeaderTests: XCTestCase {
 

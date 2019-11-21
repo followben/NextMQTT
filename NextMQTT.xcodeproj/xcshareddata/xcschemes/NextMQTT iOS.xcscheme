@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "9F496A52235FC4F20054F473"
-               BuildableName = "SimpleMQTT.framework"
-               BlueprintName = "SimpleMQTT iOS"
-               ReferencedContainer = "container:SimpleMQTT.xcodeproj">
+               BuildableName = "NextMQTT.framework"
+               BlueprintName = "NextMQTT iOS"
+               ReferencedContainer = "container:NextMQTT.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
          <BuildActionEntry
@@ -29,9 +29,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "9F496A73235FC9930054F473"
-               BuildableName = "SimpleMQTTTests.xctest"
-               BlueprintName = "SimpleMQTTTests"
-               ReferencedContainer = "container:SimpleMQTT.xcodeproj">
+               BuildableName = "NextMQTTTests.xctest"
+               BlueprintName = "NextMQTTTests"
+               ReferencedContainer = "container:NextMQTT.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -69,9 +69,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "9F496A73235FC9930054F473"
-               BuildableName = "SimpleMQTTTests.xctest"
-               BlueprintName = "SimpleMQTTTests"
-               ReferencedContainer = "container:SimpleMQTT.xcodeproj">
+               BuildableName = "NextMQTTTests.xctest"
+               BlueprintName = "NextMQTTTests"
+               ReferencedContainer = "container:NextMQTT.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -97,9 +97,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "9F496A52235FC4F20054F473"
-            BuildableName = "SimpleMQTT.framework"
-            BlueprintName = "SimpleMQTT iOS"
-            ReferencedContainer = "container:SimpleMQTT.xcodeproj">
+            BuildableName = "NextMQTT.framework"
+            BlueprintName = "NextMQTT iOS"
+            ReferencedContainer = "container:NextMQTT.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
    </ProfileAction>

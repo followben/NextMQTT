@@ -1,6 +1,6 @@
 //
 //  MQTTCodable.swift
-//  SimpleMQTT iOS
+//  NextMQTT iOS
 //
 //  Created by Ben Stovold on 4/11/19.
 //

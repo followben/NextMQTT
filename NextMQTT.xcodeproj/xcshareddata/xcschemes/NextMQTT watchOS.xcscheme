@@ -8,16 +8,16 @@
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
-            buildForRunning = "NO"
-            buildForProfiling = "NO"
-            buildForArchiving = "NO"
-            buildForAnalyzing = "NO">
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "9F496A73235FC9930054F473"
-               BuildableName = "SimpleMQTTTests.xctest"
-               BlueprintName = "SimpleMQTTTests"
-               ReferencedContainer = "container:SimpleMQTT.xcodeproj">
+               BlueprintIdentifier = "9F496A60235FC50C0054F473"
+               BuildableName = "NextMQTT.framework"
+               BlueprintName = "NextMQTT watchOS"
+               ReferencedContainer = "container:NextMQTT.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -28,16 +28,6 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
       <Testables>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "9F496A73235FC9930054F473"
-               BuildableName = "SimpleMQTTTests.xctest"
-               BlueprintName = "SimpleMQTTTests"
-               ReferencedContainer = "container:SimpleMQTT.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
@@ -57,6 +47,15 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "9F496A60235FC50C0054F473"
+            BuildableName = "NextMQTT.framework"
+            BlueprintName = "NextMQTT watchOS"
+            ReferencedContainer = "container:NextMQTT.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">
