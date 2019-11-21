@@ -175,3 +175,36 @@ class UnsubackPacketTests: XCTestCase {
     }
 
 }
+
+class PublishPacketTests: XCTestCase {
+    
+    struct TestPayload: Encodable {
+        let a = "a"
+        let b = "b"
+    }
+
+    func testPublishPacketEncode() {
+        let payload = TestPayload()
+        let message = try! JSONEncoder().encode(payload)
+        let connect = try! PublishPacket(topicName: "a/c", message: message)
+        let remainingLength = UInt8(8 + message.count)
+        let expected: [UInt8] = [48, remainingLength, 0, 3, 97, 47, 99, 0, 5, 0] + [UInt8](message)
+        let actual = try! MQTTEncoder.encode(connect)
+        XCTAssertEqual(expected, actual)
+    }
+    
+    func testPublishPacketDecode() {
+        let fixedHeader: [UInt8] = [48, 16]
+        let topic: [UInt8] = [0, 5, 47, 112, 111, 110, 103] // "/pong" as mqtt string
+        let propertyLength: [UInt8] = [0]
+        let message: [UInt8] = [84, 114, 121, 32, 84, 104, 105, 115] // "Try This" as utf8
+        let bytes: [UInt8] = fixedHeader + topic + propertyLength + message
+        let publish = try! MQTTDecoder.decode(PublishPacket.self, data: bytes)
+        XCTAssertEqual(publish.fixedHeader.controlOptions, [.publish])
+        XCTAssertEqual(publish.fixedHeader.remainingLength, 16)
+        XCTAssertEqual(publish.topicName, "/pong")
+        XCTAssertEqual(publish.propertyLength, 0)
+        XCTAssertEqual(publish.message, "Try This".data(using: .utf8))
+    }
+}
+

@@ -27,16 +27,14 @@ public enum QoS: UInt8, MQTTCodable {
 struct ControlOptions: OptionSet, MQTTCodable {
     let rawValue: UInt8
     
-    // Control Packet type
-//    publish =     0x30
-//    puback =      0x40
-//    pubrec =      0x50
-//    pubrel =      0x60
-//    pubcomp =     0x70
-//    unsubscribe = 0xa0
-//    unsuback =    0xb0
+    // 2.1.2 MQTT Control Packet type
     static let connect      = ControlOptions(rawValue: 1 << 4)
     static let connack      = ControlOptions(rawValue: 2 << 4)
+    static let publish      = ControlOptions(rawValue: 3 << 4)
+    static let puback       = ControlOptions(rawValue: 4 << 4)
+    static let pubrec       = ControlOptions(rawValue: 5 << 4)
+    static let pubrel       = ControlOptions(rawValue: 6 << 4)
+    static let pubcomp      = ControlOptions(rawValue: 7 << 4)
     static let subscribe    = ControlOptions(rawValue: 8 << 4)
     static let suback       = ControlOptions(rawValue: 9 << 4)
     static let unsubscribe  = ControlOptions(rawValue: 10 << 4)
@@ -45,9 +43,20 @@ struct ControlOptions: OptionSet, MQTTCodable {
     static let pingresp     = ControlOptions(rawValue: 13 << 4)
     static let disconnect   = ControlOptions(rawValue: 14 << 4)
     
-    // Flags specific to each Control Packet type
+    // 2.1.3 Flags specific to each MQTT Control Packet type
+    
+    // CONNECT, CONNACK, PUBACK, PUBREC, PUBCOMP, SUBACK, UNSUBACK, PINGREQ, PINGRESP, DISCONNECT, AUTH
     static let reserved0    = ControlOptions(rawValue: 0)
+    
+    // PUBREL, SUBSCRIBE, UNSUBSCRIBE
     static let reserved1    = ControlOptions(rawValue: 1 << 1)
+    
+    // PUBLISH
+    static let retain       = ControlOptions(rawValue: 1 << 0)
+    static let qos0         = ControlOptions(rawValue: QoS.qos0.rawValue << 1)
+    static let qos1         = ControlOptions(rawValue: QoS.qos1.rawValue << 1)
+    static let qos2         = ControlOptions(rawValue: QoS.qos2.rawValue << 1)
+    static let dup          = ControlOptions(rawValue: 1 << 2)
 }
 
 enum PropertyIdentifier: UInt {
@@ -65,6 +74,7 @@ protocol Packet {
 
 protocol EncodablePacket: Packet, MQTTEncodable {}
 protocol DecodablePacket: Packet, MQTTDecodable {}
+protocol CodablePacket: EncodablePacket, DecodablePacket {}
 
 // MARK: Generic Decodable MQTT Packet
 
@@ -108,7 +118,7 @@ struct ConnectFlags: OptionSet, MQTTEncodable {
     static let password          = ConnectFlags(rawValue: 1 << 6)
 }
 
-public struct ConnectPacket: EncodablePacket {
+struct ConnectPacket: EncodablePacket {
     
     let fixedHeader: FixedHeader
 
@@ -217,6 +227,31 @@ extension ConnackPacket: MQTTDecodable {
                 throw Error.invalidPropertyIdentifier
             }
         }
+    }
+}
+
+// MARK: 3.3 PUBLISH – Publish message
+
+struct PublishPacket: CodablePacket {
+    
+    enum Error: Swift.Error {
+        case notImplemented
+    }
+    
+    let fixedHeader: FixedHeader
+    
+    let topicName: String
+    let propertyLength: UInt8
+    let message: Data
+    
+    public init(topicName: String, message: Data?) throws {
+        let variableHeaderLength = topicName.byteCount + 2 + 1 // topic + packetId + propertyLength
+        let payloadLength = UInt(message?.count ?? 0)
+        let remainingLength = try UIntVar(variableHeaderLength + payloadLength)
+        self.fixedHeader = FixedHeader(controlOptions: [.publish], remainingLength: remainingLength)
+        self.topicName = topicName
+        self.propertyLength = 0
+        self.message = message!
     }
 }
 

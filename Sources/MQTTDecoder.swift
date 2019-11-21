@@ -22,6 +22,9 @@ class MQTTDecoder {
     fileprivate var cursor = 0
     fileprivate var lastReadByteCount = 0
     
+    var count: Int  { data.count }
+    var currentIndex: Int { cursor }
+    
     init(data: [UInt8]) {
         self.data = data
     }
@@ -181,9 +184,9 @@ extension MQTTDecoder: Decoder {
     private struct KeyedContainer<Key: CodingKey>: KeyedDecodingContainerProtocol {
         var decoder: MQTTDecoder
         
-        var codingPath: [CodingKey] { return [] }
+        var codingPath: [CodingKey] { [] }
         
-        var allKeys: [Key] { return [] }
+        var allKeys: [Key] { [] }
         
         func contains(_ key: Key) -> Bool {
             return true
@@ -222,13 +225,13 @@ extension MQTTDecoder: Decoder {
     private struct UnkeyedContainer: UnkeyedDecodingContainer, SingleValueDecodingContainer {
         var decoder: MQTTDecoder
         
-        var codingPath: [CodingKey] { return [] }
+        var codingPath: [CodingKey] { [] }
         
-        var count: Int? { return decoder.data.count }
+        var count: Int? { decoder.data.count }
         
-        var currentIndex: Int { return decoder.cursor }
+        var currentIndex: Int { decoder.cursor }
 
-        var isAtEnd: Bool { return decoder.cursor > (decoder.data.count - 1) }
+        var isAtEnd: Bool { decoder.cursor > (decoder.data.count - 1) }
         
         func decode<T>(_ type: T.Type) throws -> T where T : Decodable {
             do {

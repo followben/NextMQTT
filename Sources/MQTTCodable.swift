@@ -9,6 +9,19 @@ import Foundation
 
 typealias MQTTCodable = MQTTEncodable & MQTTDecodable
 
+extension Data: MQTTCodable {
+    
+    init(fromMQTTDecoder decoder: MQTTDecoder) throws {
+        let count = decoder.count - decoder.currentIndex
+        self.init()
+        self.reserveCapacity(count)
+        for _ in 0 ..< count {
+            let decoded = try UInt8.init(from: decoder)
+            self.append(decoded)
+        }
+    }
+}
+
 extension String: MQTTCodable {
     func mqttEncode(to encoder: MQTTEncoder) throws {
         let byteArray = Array(self.utf8)

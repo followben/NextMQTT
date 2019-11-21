@@ -13,6 +13,8 @@ public final class MQTT {
         case pingInterval, secureConnection, clientId, bufferSize
     }
     
+    public var onMessage: ((String, Data?) -> Void)?
+    
     private enum ConnectionState {
         case notConnected
         case connecting
@@ -130,8 +132,12 @@ public extension MQTT {
             self.sendUnsubscribe(topicFilter, completion: completion)
         }
     }
-//
-//    public func publish(to topic: String, message: Data?) { }
+
+    func publish(to topicName: String, message: Data?) {
+        transportQueue.async {
+            self.sendPublish(topicName, message: message)
+        }
+    }
     
 }
 
@@ -213,6 +219,12 @@ private extension MQTT {
         transport.send(packet: unsub)
     }
     
+    func sendPublish(_ topicName: String, message: Data?) {
+        let publish = try! PublishPacket(topicName: topicName, message: message)
+        print("Sending \(publish)")
+        transport.send(packet: publish)
+    }
+    
     func sendDisconnect() {
         connectionState = .disconnecting
         transport.send(packet: DisconnectPacket())
@@ -242,8 +254,8 @@ extension MQTT: TransportDelegate {
     func didReceive(packet: MQTTPacket, transport: Transport) {
         switch packet.fixedHeader.controlOptions {
         case .connack:
-            if let connackClosure = connAckHandler {
-                connackClosure()
+            if let onConnack = connAckHandler {
+                onConnack()
                 connAckHandler = nil
             }
             
@@ -273,6 +285,10 @@ extension MQTT: TransportDelegate {
             if case .errorHandler(let errorHandler) = handlerCoordinator.retrieveCompletionHandler(for: unsuback.packetId) {
                 errorHandler(unsuback.error)
             }
+            
+        case .publish:
+            guard let messageHandler = onMessage, let publish = MQTTDecoder.decode(packet, as: PublishPacket.self) else { return }
+            messageHandler(publish.topicName, publish.message)
             
         default:
             print("Received \(packet.fixedHeader.controlOptions)")
