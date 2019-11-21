@@ -90,7 +90,6 @@ class DisconnectPacketTests: XCTestCase {
     
 }
 
-
 class SubscribePacketTests: XCTestCase {
     
     func testSubscribePacketEncode() {

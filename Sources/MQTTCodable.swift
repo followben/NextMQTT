@@ -9,6 +9,7 @@ import Foundation
 
 typealias MQTTCodable = MQTTEncodable & MQTTDecodable
 
+/// Consumes the remaining bytes in the decoder.
 extension Data: MQTTCodable {
     
     init(fromMQTTDecoder decoder: MQTTDecoder) throws {
