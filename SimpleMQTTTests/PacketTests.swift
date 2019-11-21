@@ -91,7 +91,7 @@ class DisconnectPacketTests: XCTestCase {
 }
 
 
-class SubscriptionPacketTests: XCTestCase {
+class SubscribePacketTests: XCTestCase {
     
     func testSubscribePacketEncode() {
         let packet = try! SubscribePacket(topicFilter: "a/b", packetId: 10)
@@ -144,4 +144,34 @@ class SubackPacketTests: XCTestCase {
             return XCTAssert(false, "Expected .prematureEndOfData but got \(String(describing: error))")
         }
     }
+}
+
+class UnsubscribePacketTests: XCTestCase {
+    
+    func testUnsubscribePacketEncode() {
+        let packet = try! UnsubscribePacket(topicFilter: "a/c", packetId: 12)
+        let expected: [UInt8] = [162, 8, 0, 12, 0, 0, 3, 97, 47, 99]
+        let actual = try! MQTTEncoder.encode(packet)
+        XCTAssertEqual(expected, actual)
+    }
+    
+}
+
+class UnsubackPacketTests: XCTestCase {
+
+    func testUnsubackPacketDecode() {
+        let bytes: [UInt8] = [176, 4, 0, 12, 0, 0]
+        let unsuback = try! MQTTDecoder.decode(UnsubackPacket.self, data: bytes)
+        XCTAssert(unsuback.fixedHeader.controlOptions.contains(.unsuback))
+        XCTAssertEqual(Int(unsuback.fixedHeader.remainingLength), 4)
+        XCTAssertEqual(unsuback.packetId, 12)
+    }
+
+    func testUnsubackPacketErrorDecode() {
+        let bytes: [UInt8] = [176, 4, 0, 13, 0, 17]
+        let unsuback = try! MQTTDecoder.decode(UnsubackPacket.self, data: bytes)
+        XCTAssertEqual(unsuback.packetId, 13)
+        XCTAssertEqual(unsuback.error, .noSubscriptionExisted)
+    }
+
 }

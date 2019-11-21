@@ -39,6 +39,8 @@ struct ControlOptions: OptionSet, MQTTCodable {
     static let connack      = ControlOptions(rawValue: 2 << 4)
     static let subscribe    = ControlOptions(rawValue: 8 << 4)
     static let suback       = ControlOptions(rawValue: 9 << 4)
+    static let unsubscribe  = ControlOptions(rawValue: 10 << 4)
+    static let unsuback     = ControlOptions(rawValue: 11 << 4)
     static let pingreq      = ControlOptions(rawValue: 12 << 4)
     static let pingresp     = ControlOptions(rawValue: 13 << 4)
     static let disconnect   = ControlOptions(rawValue: 14 << 4)
@@ -220,20 +222,20 @@ extension ConnackPacket: MQTTDecodable {
 
 // MARK: 3.8 SUBSCRIBE - Subscribe request
 
-struct SubscriptionOptions: OptionSet, MQTTEncodable {     // 3.8.3.1 Subscription Options
+struct SubscribeOptions: OptionSet, MQTTEncodable {     // 3.8.3.1 Subscription Options
     let rawValue: UInt8
 
-    static let qos0                         = SubscriptionOptions(rawValue: QoS.qos0.rawValue)
-    static let qos1                         = SubscriptionOptions(rawValue: QoS.qos1.rawValue)
-    static let qos2                         = SubscriptionOptions(rawValue: QoS.qos2.rawValue)
+    static let qos0                         = SubscribeOptions(rawValue: QoS.qos0.rawValue)
+    static let qos1                         = SubscribeOptions(rawValue: QoS.qos1.rawValue)
+    static let qos2                         = SubscribeOptions(rawValue: QoS.qos2.rawValue)
     
-    static let noLocal                      = SubscriptionOptions(rawValue: 1 << 2)
+    static let noLocal                      = SubscribeOptions(rawValue: 1 << 2)
     
-    static let retainAsPublished            = SubscriptionOptions(rawValue: 1 << 3)
+    static let retainAsPublished            = SubscribeOptions(rawValue: 1 << 3)
     
-    static let retainSendOnSubscribe        = SubscriptionOptions(rawValue: 0 << 4)
-    static let retainSendIfNewSubscription  = SubscriptionOptions(rawValue: 1 << 4)
-    static let retainDoNotSend              = SubscriptionOptions(rawValue: 2 << 4)
+    static let retainSendOnSubscribe        = SubscribeOptions(rawValue: 0 << 4)
+    static let retainSendIfNewSubscription  = SubscribeOptions(rawValue: 1 << 4)
+    static let retainDoNotSend              = SubscribeOptions(rawValue: 2 << 4)
 }
 
 struct SubscribePacket: EncodablePacket {
@@ -246,9 +248,9 @@ struct SubscribePacket: EncodablePacket {
 
     // Payload
     let topicFilter: String
-    let options: SubscriptionOptions
+    let options: SubscribeOptions
 
-    public init(topicFilter: String, packetId: UInt16, options: SubscriptionOptions = [.qos0, .retainSendOnSubscribe]) throws {
+    public init(topicFilter: String, packetId: UInt16, options: SubscribeOptions = [.qos0, .retainSendOnSubscribe]) throws {
         let variableHeaderLength: UInt = 2 + 1 + 0 + 0 + 0 // 2 byte packetIdentifier + property length value + subscriptionID byte + subscription ID byte count + user property byte count
         let payloadlength = topicFilter.byteCount + 1 // byte count of the topic + byte count of the options for that topic
         let remainingLength = try UIntVar(payloadlength + variableHeaderLength)
@@ -262,7 +264,7 @@ struct SubscribePacket: EncodablePacket {
 
 // MARK: 3.9 SUBACK – Subscribe acknowledgement
 
-public enum SubscriptionError: UInt8, MQTTDecodable, Error {
+public enum SubscribeError: UInt8, MQTTDecodable, Error {
     case unspecifiedError               = 0x80
     case implementaionSpecificError     = 0x83
     case notAuthorized                  = 0x87
@@ -286,7 +288,7 @@ struct SubackPacket: DecodablePacket {
     let propertyLength: UIntVar         // 3.9.2.1.1 Property Length
     
     let qos: QoS?
-    let error: SubscriptionError?
+    let error: SubscribeError?
     
     init(fromMQTTDecoder decoder: MQTTDecoder) throws {
         var container = try decoder.unkeyedContainer()
@@ -302,7 +304,76 @@ struct SubackPacket: DecodablePacket {
             self.error = nil
         } else {
             self.qos = nil
-            self.error = try container.decode(SubscriptionError.self)
+            self.error = try container.decode(SubscribeError.self)
+        }
+    }
+}
+
+// MARK: 3.10 UNSUBSCRIBE – Unsubscribe request
+
+struct UnsubscribePacket: EncodablePacket {
+    
+    let fixedHeader: FixedHeader
+
+    // Variable Header
+    let packetId: UInt16
+    let propertyLength: UIntVar = 0
+
+    // Payload
+    let topicFilter: String
+
+    public init(topicFilter: String, packetId: UInt16) throws {
+        let variableHeaderLength: UInt = 2 + 1 + 0 + 0 // 2 byte packetIdentifier + property length value + user property byte + user property byte count
+        let payloadlength = topicFilter.byteCount
+        let remainingLength = try UIntVar(payloadlength + variableHeaderLength)
+
+        self.fixedHeader = FixedHeader(controlOptions: [.unsubscribe, .reserved1], remainingLength: remainingLength)
+        self.packetId = packetId
+        self.topicFilter = topicFilter
+    }
+}
+
+// MARK: 3.11 UNSUBACK – Unsubscribe acknowledgement
+
+fileprivate enum UnsubscribeSuccess: UInt8, MQTTDecodable {
+    case success = 0x00
+}
+
+public enum UnsubscribeError: UInt8, MQTTDecodable, Error {
+    case noSubscriptionExisted          = 0x11
+    case unspecifiedError               = 0x80
+    case implementaionSpecificError     = 0x83
+    case notAuthorized                  = 0x87
+    case topicFilterInvalid             = 0x8F
+    case packetIdInUse                  = 0x91
+}
+    
+struct UnsubackPacket: DecodablePacket {
+    
+    enum Error: Swift.Error {
+        case notImplemented
+    }
+    
+    let fixedHeader: FixedHeader
+    
+    let packetId: UInt16                // 3.11.2 UNSUBACK Variable Header
+    let propertyLength: UIntVar         // 3.11.2.1.1 Property Length
+    
+    let error: UnsubscribeError?
+    
+    init(fromMQTTDecoder decoder: MQTTDecoder) throws {
+        var container = try decoder.unkeyedContainer()
+        self.fixedHeader = try container.decode(FixedHeader.self)
+        self.packetId = try container.decode(UInt16.self)
+        let propertyLength = try container.decode(UIntVar.self)
+        if 0 < Int(propertyLength) {
+            throw Error.notImplemented
+        }
+        self.propertyLength = propertyLength
+        if let _ = try? container.decode(UnsubscribeSuccess.self) {
+            self.error = nil
+        } else {
+            self.error = try container.decode(UnsubscribeError.self)
         }
     }
 }
