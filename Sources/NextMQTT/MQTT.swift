@@ -74,7 +74,7 @@ public final class MQTT {
     
     private var packetId: UInt16 = 0
     
-    private var connAckHandler: ((MQTT.ConnectError?) -> Void)?
+    private var connAckHandler: ((Result<Void, MQTT.ConnectError>) -> Void)?
     private var handlerCoordinator = CompletionHandlerCoordinator()
     
     // MARK: Lifecycle
@@ -107,18 +107,19 @@ public extension MQTT {
         self.init(host: host, port: port, username: username, password: password, optionsDict: options)
     }
     
-    func connect(completion: ((Error?) -> Void)? = nil) {
+    func connect(completion: ((Result<Void, MQTT.ConnectError>) -> Void)? = nil) {
         connectionState = .connecting
-        connAckHandler = { [weak self] error in
+        connAckHandler = { [weak self] result in
             guard let self = self else { return }
-            guard error == nil else {
-                completion?(error)
-                return
+            switch result {
+            case .success():
+                self.connectionState = .connected
+                self.keepAlive()
+            case .failure(let error):
+                print("Error on connect: \(error)")
+                self.connectionState = .notConnected
             }
-            
-            self.connectionState = .connected
-            self.keepAlive()
-            completion?(nil)
+            completion?(result)
         }
         packetId = 0
         transportQueue.async {
@@ -184,14 +185,15 @@ private extension MQTT {
         assert(connectionState == .dropped || connectionState == .reconnecting)
         if connectionState == .dropped {
             connectionState = .reconnecting
-            connAckHandler = { [weak self] error in
+            connAckHandler = { [weak self] result in
                 guard let self = self else { return }
-                if let error = error, error != .busy {
-                    print("Error on reconnect: \(error)")
-                    self.connectionState = .dropped
-                } else {
+                switch result {
+                case .success():
                     self.connectionState = .connected
                     self.keepAlive()
+                case .failure(let error):
+                    print("Error on reconnect: \(error)")
+                    self.connectionState = .dropped
                 }
             }
         }
@@ -272,9 +274,13 @@ extension MQTT: TransportDelegate {
         case .connack:
             if let onConnack = connAckHandler {
                 if let connack = MQTTDecoder.decode(packet, as: ConnackPacket.self) {
-                    onConnack(connack.error)
+                    if let error = connack.error {
+                        onConnack(.failure(error))
+                    } else {
+                        onConnack(.success(()))
+                    }
                 } else {
-                    onConnack(.unspecifiedError)
+                    onConnack(.failure(.unspecifiedError))
                 }
                 connAckHandler = nil
             }

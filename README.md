@@ -4,7 +4,7 @@
 
 NextMQTT is a modern MQTT 5.0 client for iOS and watchOS.
 
-Currently functionality includes connect/ disconnect, subscribe/ unsubscribe, and publish/ receive, all with "at most once" ([QoS 0](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901235)) delivery.
+It currently includes basic functionality including subscribe/ unsubscribe and publish/ receive with "at most once" ([QoS 0](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901235)) delivery.
 
 Although the project is [actively maintained](#Roadmap), it is not yet production-ready and [contributions](#Contribute) are welcome.
 
@@ -26,11 +26,12 @@ mqtt = MQTT(host: "my.mqttserver.com", port: 1883, username: "myuser", password:
 
 Connect
 ```swift
-mqtt.connect { error in
-    if let error = error {
-        print(error.description)
-    } else {
+mqtt.connect { result in
+    switch result {
+    case .success():
         print("connected")
+    case .failure(let error):
+        print(error.description)
     }
 }
 ```
