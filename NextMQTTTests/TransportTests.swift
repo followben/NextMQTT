@@ -182,7 +182,7 @@ class TransportTests: XCTestCase, TransportDelegate {
     }
     
     func testTransport() {
-        let transport = Transport(hostName: "127.0.0.1", port: testServer.port, useTLS: false, queue: DispatchQueue.main)
+        let transport = Transport(hostName: "127.0.0.1", port: testServer.port, useTLS: false, maxBuffer: 2048, queue: DispatchQueue.main)
         
         let connectPacket = try! ConnectPacket(clientId: "A")
         let connectBytes = try! MQTTEncoder.encode(connectPacket)

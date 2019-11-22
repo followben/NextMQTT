@@ -10,7 +10,7 @@ import Foundation
 public final class MQTT {
     
     public enum OptionsKey {
-        case pingInterval, secureConnection, clientId, bufferSize
+        case pingInterval, secureConnection, clientId, maxBuffer
     }
     
     public var onMessage: ((String, Data?) -> Void)?
@@ -54,8 +54,8 @@ public final class MQTT {
     private var pingInterval: UInt16 {
         options[.pingInterval] as? UInt16 ?? 10
     }
-    private var bufferSize: Int {
-        options[.bufferSize] as? Int ?? 4096
+    private var maxBuffer: Int {
+        options[.maxBuffer] as? Int ?? 4096
     }
     private var secureConnection: Bool {
         options[.secureConnection] as? Bool ?? false
@@ -66,7 +66,7 @@ public final class MQTT {
     private var _transport: Transport?
     private var transport: Transport {
         if let transport = _transport { return transport }
-        let transport = Transport(hostName: host, port: port, useTLS: secureConnection, queue: transportQueue)
+        let transport = Transport(hostName: host, port: port, useTLS: secureConnection, maxBuffer: maxBuffer, queue: transportQueue)
         transport.delegate = self
         _transport = transport
         return transport

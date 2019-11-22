@@ -48,6 +48,7 @@
 		9F496A74235FC9930054F473 /* NextMQTTTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NextMQTTTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9F496A76235FC9930054F473 /* IntegerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegerTests.swift; sourceTree = "<group>"; };
 		9F496A78235FC9930054F473 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		9F5001792386896700E00925 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		9F50D7D0236FD6F0007D96C2 /* MQTTCodable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MQTTCodable.swift; sourceTree = "<group>"; };
 		9F50D7D1236FD6F0007D96C2 /* MQTTDecoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MQTTDecoder.swift; sourceTree = "<group>"; };
 		9F50D7D2236FD6F0007D96C2 /* MQTTEncoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MQTTEncoder.swift; sourceTree = "<group>"; };
@@ -87,6 +88,7 @@
 		9F496A47235FC4B60054F473 = {
 			isa = PBXGroup;
 			children = (
+				9F5001792386896700E00925 /* README.md */,
 				9F496A69235FC5690054F473 /* Sources */,
 				9F496A75235FC9930054F473 /* NextMQTTTests */,
 				9F496A54235FC4F20054F473 /* Products */,
@@ -470,6 +472,7 @@
 				PRODUCT_NAME = NextMQTT;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -544,6 +547,7 @@
 				PRODUCT_NAME = NextMQTT;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;

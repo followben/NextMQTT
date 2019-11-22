@@ -36,6 +36,20 @@ enum TransportState {
 
 final class Transport {
     
+    private var state: State = .initialised
+
+    let name: String
+    let useTLS: Bool
+    let queue: DispatchQueue
+    let maxBuffer: Int
+    let streamTaskMaker: () -> URLSessionStreamTask
+
+    weak var delegate: TransportDelegate? = nil
+    
+    var transportState: TransportState {
+        return self.state.transportState
+    }
+    
     deinit {
         // If this assert fires you’ve released the last reference to this
         // transport without stopping it.
@@ -64,11 +78,12 @@ final class Transport {
     ///     You can’t go modifying it after the fact.  The stream task must not
     ///     be resumed; this object takes care of resuming it.
 
-    required init(name: String, useTLS: Bool, queue: DispatchQueue, streamTaskMaker: @escaping () -> URLSessionStreamTask) {
+    required init(name: String, useTLS: Bool, maxBuffer: Int, queue: DispatchQueue, streamTaskMaker: @escaping () -> URLSessionStreamTask) {
         dispatchPrecondition(condition: .onQueue(queue))
         self.name = name
         self.useTLS = useTLS
         self.queue = queue
+        self.maxBuffer = maxBuffer
         self.streamTaskMaker = streamTaskMaker
     }
     
@@ -82,24 +97,11 @@ final class Transport {
     ///   - queue: The queue on which to operate; delegate callbacks are called
     ///     on this queue.
 
-    convenience init(hostName: String, port: Int, useTLS: Bool, queue: DispatchQueue) {
+    convenience init(hostName: String, port: Int, useTLS: Bool, maxBuffer: Int, queue: DispatchQueue) {
         dispatchPrecondition(condition: .onQueue(queue))
-        self.init(name: "\(hostName):\(port)", useTLS: useTLS, queue: queue, streamTaskMaker: { () -> URLSessionStreamTask in
+        self.init(name: "\(hostName):\(port)", useTLS: useTLS, maxBuffer: maxBuffer, queue: queue, streamTaskMaker: { () -> URLSessionStreamTask in
             return URLSession.shared.streamTask(withHostName: hostName, port: port)
         })
-    }
-    
-    private var state: State = .initialised
-
-    let name: String
-    let useTLS: Bool
-    let queue: DispatchQueue
-    let streamTaskMaker: () -> URLSessionStreamTask
-
-    weak var delegate: TransportDelegate? = nil
-    
-    var transportState: TransportState {
-        return self.state.transportState
     }
 
     func start() {
@@ -406,7 +408,7 @@ extension Transport {
 
     private func setupRead(started: Started) -> State {
         dispatchPrecondition(condition: .onQueue(queue))
-        started.streamTask.readData(ofMinLength: 1, maxLength: 2048, timeout: 60) { (data, isEOF, error) in
+        started.streamTask.readData(ofMinLength: 1, maxLength: maxBuffer, timeout: 60) { (data, isEOF, error) in
             self.deferred { state in
                 guard case .started = state else { return }
                 if let error = error {
