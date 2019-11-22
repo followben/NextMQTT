@@ -14,6 +14,7 @@ public final class MQTT {
     }
     
     public var onMessage: ((String, Data?) -> Void)?
+    public var onConnectionState: ((ConnectionState) -> Void)?
     
     public enum QoS: UInt8 {
         case qos0
@@ -21,7 +22,7 @@ public final class MQTT {
         case qos2
     }
     
-    private enum ConnectionState {
+    public enum ConnectionState {
         case notConnected
         case connecting
         case connected
@@ -31,9 +32,9 @@ public final class MQTT {
         case disconnected
     }
     
-    private var connectionState: ConnectionState = .notConnected {
+    public var connectionState: ConnectionState = .notConnected {
         didSet {
-            print("Connection state changed: \(connectionState)")
+            onConnectionState?(connectionState)
         }
     }
 

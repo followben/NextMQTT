@@ -82,8 +82,8 @@ mqtt.onReceive = { topic, encodedMessage in
 
 Monitor 
 ```swift
-mqtt.onStatusChanged = { status in
-    print("new connection status is \(status)")
+mqtt.onConnectionState = { state in
+    print("new connection state is \(state)")
 }
 ```
 ## Install
