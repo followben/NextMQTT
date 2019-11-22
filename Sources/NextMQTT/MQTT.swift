@@ -139,7 +139,7 @@ public extension MQTT {
         }
     }
     
-    func unsubscribe(from topicFilter: String, completion: ((Error?) -> Void)? = nil) {
+    func unsubscribe(from topicFilter: String, completion: ((Result<Void, UnsubscribeError>) -> Void)? = nil) {
         transportQueue.async {
             self.sendUnsubscribe(topicFilter, completion: completion)
         }
@@ -222,16 +222,16 @@ private extension MQTT {
     func sendSubscribe(_ topicFilter: String, completion: ((Result<QoS, SubscribeError>) -> Void)? = nil) {
         let sub = try! SubscribePacket(topicFilter: topicFilter, packetId: nextPacketId())
         if let handler = completion {
-            handlerCoordinator.store(completionHandler: CompletionHandler.subscriptionResultHandler(handler), for: sub.packetId)
+            handlerCoordinator.store(completionHandler: CompletionHandler.subscribeResultHandler(handler), for: sub.packetId)
         }
         print("Sending \(sub)")
         transport.send(packet: sub)
     }
     
-    func sendUnsubscribe(_ topicFilter: String, completion: ((Error?) -> Void)? = nil) {
+    func sendUnsubscribe(_ topicFilter: String, completion: ((Result<Void, UnsubscribeError>) -> Void)? = nil) {
         let unsub = try! UnsubscribePacket(topicFilter: topicFilter, packetId: nextPacketId())
         if let handler = completion {
-            handlerCoordinator.store(completionHandler: CompletionHandler.errorHandler(handler), for: unsub.packetId)
+            handlerCoordinator.store(completionHandler: CompletionHandler.unsubscribeResultHandler(handler), for: unsub.packetId)
         }
         print("Sending \(unsub)")
         transport.send(packet: unsub)
@@ -289,7 +289,7 @@ extension MQTT: TransportDelegate {
             guard let suback = MQTTDecoder.decode(packet, as: SubackPacket.self) else { return }
             
             var handler: ((Result<QoS, SubscribeError>) -> Void)?
-            if case .subscriptionResultHandler(let resultHandler) = handlerCoordinator.retrieveCompletionHandler(for: suback.packetId) {
+            if case .subscribeResultHandler(let resultHandler) = handlerCoordinator.retrieveCompletionHandler(for: suback.packetId) {
                 handler = resultHandler
             }
             
@@ -304,12 +304,17 @@ extension MQTT: TransportDelegate {
         case .unsuback:
             guard let unsuback = MQTTDecoder.decode(packet, as: UnsubackPacket.self) else { return }
             
-            if let error = unsuback.error {
-                print("Unsubscribe error: \(error)")
+            var handler: ((Result<Void, UnsubscribeError>) -> Void)?
+            if case .unsubscribeResultHandler(let resultHandler) = handlerCoordinator.retrieveCompletionHandler(for: unsuback.packetId) {
+                handler = resultHandler
             }
             
-            if case .errorHandler(let errorHandler) = handlerCoordinator.retrieveCompletionHandler(for: unsuback.packetId) {
-                errorHandler(unsuback.error)
+            if let error = unsuback.error {
+                print("Unsubscribe error: \(error)")
+                handler?(.failure(error))
+            } else {
+                print("Unsubscribe successful")
+                handler?(.success(()))
             }
             
         case .publish:
@@ -338,7 +343,8 @@ fileprivate extension MQTT {
     enum CompletionHandler {
         case emptyHandler(() -> Void)
         case errorHandler((Error?) -> Void)
-        case subscriptionResultHandler(((Result<QoS, SubscribeError>) -> Void))
+        case subscribeResultHandler(((Result<QoS, SubscribeError>) -> Void))
+        case unsubscribeResultHandler(((Result<Void, UnsubscribeError>) -> Void))
     }
 
     class CompletionHandlerCoordinator {
