@@ -18,6 +18,10 @@ fileprivate extension String {
     }
 }
 
+fileprivate enum Success: UInt8, MQTTDecodable {
+    case success = 0x00
+}
+
 extension MQTT.QoS: MQTTCodable {}
 
 struct ControlOptions: OptionSet, MQTTCodable {
@@ -159,40 +163,41 @@ struct ConnackFlags: OptionSet, MQTTDecodable {
     static let sessionPresent   = ConnackFlags(rawValue: 1 << 0)    // 3.2.2.1.1 Session Present
 }
 
-enum ConnackReason: UInt8, MQTTDecodable {
-    case success                = 0x00
-    case unspecifiedError       = 0x80
-    case malformedPacket        = 0x81
-    case protocolError          = 0x82
-    case implementationError    = 0x83
-    case unsupportedVersion     = 0x84
-    case invalidClientId        = 0x85
-    case invalidCredentials     = 0x86
-    case unauthorized           = 0x87
-    case unavailable            = 0x88
-    case busy                   = 0x89
-    case banned                 = 0x8A
-    case badAuthMethod          = 0x8C
-    case willTopicInvalid       = 0x90
-    case packetTooLarge         = 0x95
-    case quotaExceeded          = 0x97
-    case willPayloadInvalid     = 0x99
-    case retainNotSupported     = 0x9A
-    case willQoSNotSupported    = 0x9B
-    case useAnotherServer       = 0x9C
-    case serverMoved            = 0x9D
-    case rateLimitExceeded      = 0x9F
+public extension MQTT {
+    enum ConnectError: UInt8, Error {
+        case unspecifiedError       = 0x80
+        case malformedPacket        = 0x81
+        case protocolError          = 0x82
+        case implementationError    = 0x83
+        case unsupportedVersion     = 0x84
+        case invalidClientId        = 0x85
+        case invalidCredentials     = 0x86
+        case unauthorized           = 0x87
+        case unavailable            = 0x88
+        case busy                   = 0x89
+        case banned                 = 0x8A
+        case badAuthMethod          = 0x8C
+        case willTopicInvalid       = 0x90
+        case packetTooLarge         = 0x95
+        case quotaExceeded          = 0x97
+        case willPayloadInvalid     = 0x99
+        case retainNotSupported     = 0x9A
+        case willQoSNotSupported    = 0x9B
+        case useAnotherServer       = 0x9C
+        case serverMoved            = 0x9D
+        case rateLimitExceeded      = 0x9F
+    }
 }
+
+extension MQTT.ConnectError: MQTTDecodable {}
 
 struct ConnackPacket: DecodablePacket {
     
     let fixedHeader: FixedHeader
     
-    // Variable Header
     let flags: ConnackFlags             // 3.2.2.1 Connect Acknowledge Flags
-    let reasonCode: ConnackReason       // 3.2.2.2 Connect Reason Code
+    let error: MQTT.ConnectError?
     
-    // Payload
     var topicAliasMaximum: Int = 0
 }
 
@@ -206,7 +211,13 @@ extension ConnackPacket: MQTTDecodable {
         var container = try decoder.unkeyedContainer()
         self.fixedHeader = try container.decode(FixedHeader.self)
         self.flags = try container.decode(ConnackFlags.self)
-        self.reasonCode = try container.decode(ConnackReason.self)
+
+        if let _ = try? container.decode(Success.self) {
+            self.error = nil
+        } else {
+            self.error = try container.decode(MQTT.ConnectError.self)
+        }
+        
         var bytesRemaining = Int(try container.decode(UIntVar.self))
         while  bytesRemaining > 0 && !container.isAtEnd {
             

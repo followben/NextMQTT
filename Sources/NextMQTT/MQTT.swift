@@ -74,7 +74,7 @@ public final class MQTT {
     
     private var packetId: UInt16 = 0
     
-    private var connAckHandler: (() -> Void)?
+    private var connAckHandler: ((MQTT.ConnectError?) -> Void)?
     private var handlerCoordinator = CompletionHandlerCoordinator()
     
     // MARK: Lifecycle
@@ -107,13 +107,18 @@ public extension MQTT {
         self.init(host: host, port: port, username: username, password: password, optionsDict: options)
     }
     
-    func connect(completion: ((_ success: Bool) -> Void)? = nil) {
+    func connect(completion: ((Error?) -> Void)? = nil) {
         connectionState = .connecting
-        connAckHandler = { [weak self] in
+        connAckHandler = { [weak self] error in
             guard let self = self else { return }
+            guard error == nil else {
+                completion?(error)
+                return
+            }
+            
             self.connectionState = .connected
             self.keepAlive()
-            completion?(true)
+            completion?(nil)
         }
         packetId = 0
         transportQueue.async {
@@ -179,10 +184,15 @@ private extension MQTT {
         assert(connectionState == .dropped || connectionState == .reconnecting)
         if connectionState == .dropped {
             connectionState = .reconnecting
-            connAckHandler = { [weak self] in
+            connAckHandler = { [weak self] error in
                 guard let self = self else { return }
-                self.connectionState = .connected
-                self.keepAlive()
+                if let error = error, error != .busy {
+                    print("Error on reconnect: \(error)")
+                    self.connectionState = .dropped
+                } else {
+                    self.connectionState = .connected
+                    self.keepAlive()
+                }
             }
         }
         let deadline = DispatchTime.now() + .seconds(5)
@@ -261,7 +271,11 @@ extension MQTT: TransportDelegate {
         switch packet.fixedHeader.controlOptions {
         case .connack:
             if let onConnack = connAckHandler {
-                onConnack()
+                if let connack = MQTTDecoder.decode(packet, as: ConnackPacket.self) {
+                    onConnack(connack.error)
+                } else {
+                    onConnack(.unspecifiedError)
+                }
                 connAckHandler = nil
             }
             

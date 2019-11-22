@@ -27,10 +27,11 @@ mqtt = MQTT(host: "my.mqttserver.com", port: 1883, username: "myuser", password:
 Connect
 ```swift
 mqtt.connect { error in
-    guard error == nil else {
+    if let error = error {
         print(error.description)
+    } else {
+        print("connected")
     }
-    print("connected")
 }
 ```
 

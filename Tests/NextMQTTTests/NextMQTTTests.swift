@@ -134,8 +134,15 @@ final class PacketTests: XCTestCase {
         XCTAssert(connack.fixedHeader.controlOptions.contains(.connack))
         XCTAssertEqual(Int(connack.fixedHeader.remainingLength), 6)
         XCTAssertFalse(connack.flags.contains(.sessionPresent))
-        XCTAssertEqual(connack.reasonCode, .success)
+        XCTAssertNil(connack.error)
         XCTAssertEqual(connack.topicAliasMaximum, 10)
+    }
+    
+    func testConnackPacketErrorDecode() {
+        let bytes: [UInt8] = [32, 3, 0, 151, 3]
+        let connack = try! MQTTDecoder.decode(ConnackPacket.self, data: bytes)
+        XCTAssert(connack.fixedHeader.controlOptions.contains(.connack))
+        XCTAssertEqual(connack.error, .quotaExceeded)
     }
 
     func testBadConnackPacket() {
