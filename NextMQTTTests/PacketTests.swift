@@ -187,7 +187,7 @@ class PublishPacketTests: XCTestCase {
         let message = try! JSONEncoder().encode(payload)
         let connect = try! PublishPacket(topicName: "a/c", message: message)
         let remainingLength = UInt8(8 + message.count)
-        let expected: [UInt8] = [48, remainingLength, 0, 3, 97, 47, 99, 0, 5, 0] + [UInt8](message)
+        let expected: [UInt8] = [48, remainingLength, 0, 3, 97, 47, 99, 0] + [UInt8](message)
         let actual = try! MQTTEncoder.encode(connect)
         XCTAssertEqual(expected, actual)
     }
