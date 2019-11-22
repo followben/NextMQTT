@@ -2,7 +2,7 @@
 
 ![](https://github.com/followben/NextMQTT/workflows/Swift/badge.svg)
 
-NextMQTT is a modern MQTT 5.0 client. It's written in Swift 5 and works on both iOS and watchOS.
+NextMQTT is a modern MQTT 5.0 client for iOS and watchOS.
 
 Currently functionality includes connect/ disconnect, subscribe/ unsubscribe, and publish/ receive, all with "at most once" ([QoS 0](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901235)) delivery.
 
@@ -87,6 +87,8 @@ mqtt.onStatusChanged = { status in
 ## Install
 
 In your Xcode project, select File > Swift Packages > Add Package Dependency... and add `https://github.com/followben/NextMQTT`. For the latest stable changes, select the `master` branch.
+
+NextMQTT has been tested on watchOS 6 and iOS 13. In theory NextMQTT will also work on macOS 12 and tvOS but this hasn't been verified.
 
 ## Contribute
 PRs are welcome. For major changes, open an issue first to discuss what you would like to change.
