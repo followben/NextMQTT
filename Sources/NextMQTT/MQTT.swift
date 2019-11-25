@@ -5,7 +5,12 @@
 //  Created by Ben Stovold on 23/10/19.
 //
 
+import os
 import Foundation
+
+extension OSLog {
+    static let mqtt = OSLog(subsystem: Bundle.main.bundleIdentifier!, category: "mqtt")
+}
 
 public final class MQTT {
     
@@ -117,7 +122,7 @@ public extension MQTT {
                 self.connectionState = .connected
                 self.keepAlive()
             case .failure(let error):
-                print("Error on connect: \(error)")
+                os_log("Error on connect: %@", log: .mqtt, type: .error, String(describing: error))
                 self.connectionState = .notConnected
             }
             completion?(result)
@@ -193,7 +198,7 @@ private extension MQTT {
                     self.connectionState = .connected
                     self.keepAlive()
                 case .failure(let error):
-                    print("Error on reconnect: \(error)")
+                    os_log("Error on reconnect: %@", log: .mqtt, type: .error, String(describing: error))
                     self.connectionState = .dropped
                 }
             }
@@ -202,7 +207,7 @@ private extension MQTT {
         transportQueue.asyncAfter(deadline: deadline) { [weak self] in
             guard let self = self else { return }
             if self.connectionState == .dropped || self.connectionState == .reconnecting {
-                print("Reconnect Timed Out. Trying again...")
+                os_log("Reconnect Timed Out. Trying again...", log: .mqtt, type: .info)
                 self.reconnect()
             }
         }
@@ -212,12 +217,14 @@ private extension MQTT {
     
     func sendConnect() {
         let conn = try! ConnectPacket(clientId: clientId, username: username, password: password, keepAlive: pingInterval)
+        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: conn))
         transport.send(packet: conn)
     }
 
     func sendPing() {
-        print("Pinging...")
-        transport.send(packet: PingReqPacket())
+        let ping = PingReqPacket()
+        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: ping))
+        transport.send(packet: ping)
     }
     
     func sendSubscribe(_ topicFilter: String, completion: ((Result<QoS, SubscribeError>) -> Void)? = nil) {
@@ -225,7 +232,7 @@ private extension MQTT {
         if let handler = completion {
             handlerCoordinator.store(completionHandler: CompletionHandler.subscribeResultHandler(handler), for: sub.packetId)
         }
-        print("Sending \(sub)")
+        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: sub))
         transport.send(packet: sub)
     }
     
@@ -234,19 +241,21 @@ private extension MQTT {
         if let handler = completion {
             handlerCoordinator.store(completionHandler: CompletionHandler.unsubscribeResultHandler(handler), for: unsub.packetId)
         }
-        print("Sending \(unsub)")
+        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: unsub))
         transport.send(packet: unsub)
     }
     
     func sendPublish(_ topicName: String, message: Data?) {
         let publish = try! PublishPacket(topicName: topicName, message: message)
-        print("Sending \(publish)")
+        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: publish))
         transport.send(packet: publish)
     }
     
     func sendDisconnect() {
         connectionState = .disconnecting
-        transport.send(packet: DisconnectPacket())
+        let disconnect = DisconnectPacket()
+        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: disconnect))
+        transport.send(packet: disconnect)
         transport.stop()
         connectionState = .disconnected
     }
@@ -258,7 +267,7 @@ extension MQTTDecoder {
     static func decode<T: MQTTDecodable>(_ packet: MQTTPacket, as type: T.Type) -> T? {
         let result = Result { try MQTTDecoder.decode(T.self, data: packet.bytes) }
         guard case .success(let packet) = result else {
-            print("Error decoding packet: \(result.mapError { $0 })")
+            os_log("Error decoding packet: %@", log: .mqtt, type: .error, String(describing: result.mapError { $0 }))
             return nil
         }
         return packet
@@ -295,10 +304,10 @@ extension MQTT: TransportDelegate {
             }
             
             if let qos = suback.qos {
-                print("Subscribe successful: \(qos)")
+                os_log("Subscribe successful: %@", log: .mqtt, type: .info, String(describing: qos))
                 handler?(.success(qos))
             } else if let error = suback.error {
-                print("Subscribe error: \(error)")
+                os_log("Subscribe error: %@", log: .mqtt, type: .error, String(describing: error))
                 handler?(.failure(error))
             }
             
@@ -311,10 +320,10 @@ extension MQTT: TransportDelegate {
             }
             
             if let error = unsuback.error {
-                print("Unsubscribe error: \(error)")
+                os_log("Unsubscribe error: %@", log: .mqtt, type: .error, String(describing: error))
                 handler?(.failure(error))
             } else {
-                print("Unsubscribe successful")
+                os_log("Unsubscribe successful", log: .mqtt, type: .info)
                 handler?(.success(()))
             }
             
@@ -323,7 +332,7 @@ extension MQTT: TransportDelegate {
             messageHandler(publish.topicName, publish.message)
             
         default:
-            print("Received \(packet.fixedHeader.controlOptions)")
+            os_log("Received %@", log: .mqtt, type: .debug, String(describing: packet.fixedHeader.controlOptions))
         }
     }
 
@@ -333,7 +342,7 @@ extension MQTT: TransportDelegate {
             resetTransport()
             reconnect()
         } else {
-            print("TODO: handle transport error")
+            os_log("TODO: handle transport error", log: .mqtt, type: .error)
         }
     }
 }
