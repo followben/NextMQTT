@@ -99,13 +99,13 @@ Please ensure tests pass and are up-to-date.
 
 ## Roadmap
 Planned features include:
-* Session state & expiry
-* Support for QoS 1 and 2
-* Will Messages
-* Properties, incl. User Properties
-* Extended authentication flows
+- [ ] Support for QoS 1 and 2 incl. session state
+- [ ] Publish with retain
+- [ ] Will Messages
+- [ ] Properties, incl. User Properties
+- [ ] Extended authentication flows
 
-There is no plan to support MQTT 3.1, Websockets or Shared Subscriptions.
+There is currently no plan to support MQTT 3.1, Websockets or Shared Subscriptions.
 
 ## License
 
