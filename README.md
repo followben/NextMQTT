@@ -105,7 +105,7 @@ Planned features include:
 * Properties, incl. User Properties
 * Extended authentication flows
 
-There is no plan to support MQTT 3.1 or Shared Subscriptions.
+There is no plan to support MQTT 3.1, Websockets or Shared Subscriptions.
 
 ## License
 
