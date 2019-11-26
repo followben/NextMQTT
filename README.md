@@ -38,8 +38,8 @@ mqtt.connect { result in
 
 Subscribe
 ```swift
-let topic = "/mytopic"
-mqtt.subscribe(to: topic) { result in
+let filter = "mytopics/#"
+mqtt.subscribe(to: filter) { result in
     switch result {
     case .success():
         print("subscribed")
@@ -51,8 +51,8 @@ mqtt.subscribe(to: topic) { result in
 
 Unsubscribe
 ```swift
-let topic = "/mytopic"
-mqtt.unSubscribe(from: topic) { result in
+let filter = "mytopics/#"
+mqtt.unSubscribe(from: filter) { result in
     switch result {
     case .success():
         print("unsubscribed")
@@ -66,7 +66,7 @@ Publish
 ```swift
 let jsonMessage = ["key" : "value"]
 let encodedMessage = try! JSONEncoder().encode(json)
-let topic = "/mytopic"
+let topic = "mytopics/atopic"
 mqtt.publish(to: topic, data: encodedMessage)
 ```
 
