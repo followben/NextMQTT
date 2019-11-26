@@ -134,7 +134,7 @@ struct ConnectPacket: EncodablePacket {
     let username: String?
     let password: String?
     
-    public init(clientId: String, username: String? = nil, password: String? = nil, keepAlive: UInt16 = 10) throws {
+    public init(clientId: String, username: String? = nil, password: String? = nil, keepAlive: UInt16 = 10, cleanStart: Bool = false) throws {
         let variableHeaderLength = MQTT.ProtocolName.byteCount + 1 + 1 + 2 + 1
         let payloadlength = clientId.byteCount + (username?.byteCount ?? 0) + (password?.byteCount ?? 0)
         let remainingLength = try UIntVar(payloadlength + variableHeaderLength)
@@ -142,7 +142,10 @@ struct ConnectPacket: EncodablePacket {
         self.clientId = clientId
         self.username = username
         self.password = password
-        var connectFlags: ConnectFlags = []     // TODO: section 3.1.2.4 Clean Start Flag
+        var connectFlags: ConnectFlags = []
+        if cleanStart {
+            connectFlags.insert(.cleanStart)     // section 3.1.2.4 Clean Start Flag
+        }
         if username != nil {
             connectFlags.insert(.username)      // section 3.1.2.8 User Name Flag
         }

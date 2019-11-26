@@ -15,7 +15,7 @@ extension OSLog {
 public final class MQTT {
     
     public enum OptionsKey {
-        case pingInterval, secureConnection, clientId, maxBuffer
+        case pingInterval, secureConnection, clientId, maxBuffer, cleanStart
     }
     
     public var onMessage: ((String, Data?) -> Void)?
@@ -65,6 +65,9 @@ public final class MQTT {
     }
     private var secureConnection: Bool {
         options[.secureConnection] as? Bool ?? false
+    }
+    private var cleanStart: Bool {
+        options[.cleanStart] as? Bool ?? false
     }
     
     private let transportQueue = DispatchQueue(label: "com.simplemqtt.transport")
@@ -216,7 +219,7 @@ private extension MQTT {
     }
     
     func sendConnect() {
-        let conn = try! ConnectPacket(clientId: clientId, username: username, password: password, keepAlive: pingInterval)
+        let conn = try! ConnectPacket(clientId: clientId, username: username, password: password, keepAlive: pingInterval, cleanStart: cleanStart)
         os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: conn))
         transport.send(packet: conn)
     }

@@ -128,6 +128,13 @@ final class PacketTests: XCTestCase {
         XCTAssertEqual(expected, actual)
     }
     
+    func testConnectPacketEncodeWithCleanStart() {
+        let connect = try! ConnectPacket(clientId: "123", cleanStart: true)
+        let expected: [UInt8] = [16, 16, 0, 4, 77, 81, 84, 84, 5, 2, 0, 10, 0, 0, 3, 49, 50, 51]
+        let actual = try! MQTTEncoder.encode(connect)
+        XCTAssertEqual(expected, actual)
+    }
+    
     func testConnackPacketDecode() {
         let bytes: [UInt8] = [32, 6, 0, 0, 3, 34, 0, 10]
         let connack = try! MQTTDecoder.decode(ConnackPacket.self, data: bytes)
