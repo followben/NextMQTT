@@ -154,9 +154,9 @@ public extension MQTT {
         }
     }
 
-    func publish(to topicName: String, message: Data?) {
+    func publish(to topicName: String, qos: QoS = .mostOnce, message: Data?) {
         transportQueue.async {
-            self.sendPublish(topicName, message: message)
+            self.sendPublish(topicName, qos:qos, message: message)
         }
     }
     
@@ -248,8 +248,9 @@ private extension MQTT {
         transport.send(packet: unsub)
     }
     
-    func sendPublish(_ topicName: String, message: Data?) {
-        let publish = try! PublishPacket(topicName: topicName, message: message)
+    func sendPublish(_ topicName: String, qos: QoS, message: Data?) {
+        let packetId = (qos != .mostOnce) ? nextPacketId() : nil
+        let publish = try! PublishPacket(topicName: topicName, qos: qos, packetId: packetId, message: message)
         os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: publish))
         transport.send(packet: publish)
     }

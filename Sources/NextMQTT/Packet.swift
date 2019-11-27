@@ -53,9 +53,9 @@ struct ControlOptions: OptionSet, MQTTCodable {
     
     // PUBLISH
     static let retain       = ControlOptions(rawValue: 1 << 0)
-    static let qos0         = ControlOptions(rawValue: MQTT.QoS.mostOnce.rawValue << 1)
-    static let qos1         = ControlOptions(rawValue: MQTT.QoS.leastOnce.rawValue << 1)
-    static let qos2         = ControlOptions(rawValue: MQTT.QoS.exactlyOnce.rawValue << 1)
+    static func qos(_ qos: MQTT.QoS) -> Self {
+        ControlOptions(rawValue: qos.rawValue << 1)
+    }
     static let dup          = ControlOptions(rawValue: 1 << 2)
 }
 
@@ -251,17 +251,21 @@ struct PublishPacket: CodablePacket {
     let fixedHeader: FixedHeader
     
     let topicName: String
+    let packetId: UInt16?
     let propertyLength: UInt8
     let message: Data
     
-    init(topicName: String, message: Data?) throws {
-        let variableHeaderLength = topicName.byteCount + 2 + 1 // topic + packetId + propertyLength
+    init(topicName: String, qos: MQTT.QoS, packetId: UInt16? = nil, message: Data?) throws {
+        precondition((qos == .mostOnce && packetId == nil) || (qos != .mostOnce && packetId != nil))
+        let packetIdLength: UInt = (packetId != nil) ? 2 : 0
+        let variableHeaderLength = topicName.byteCount + packetIdLength + 1 // topic + packetId + propertyLength
         let payloadLength = UInt(message?.count ?? 0)
         let remainingLength = try UIntVar(variableHeaderLength + payloadLength)
-        self.fixedHeader = FixedHeader(controlOptions: [.publish], remainingLength: remainingLength)
+        self.fixedHeader = FixedHeader(controlOptions: [.publish, .qos(qos)], remainingLength: remainingLength)
         self.topicName = topicName
+        self.packetId = packetId
         self.propertyLength = 0
-        self.message = message!
+        self.message = message ?? Data()
     }
 }
 
