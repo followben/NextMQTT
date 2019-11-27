@@ -285,15 +285,23 @@ extension MQTT: TransportDelegate {
     func didReceive(packet: MQTTPacket, transport: Transport) {
         switch packet.fixedHeader.controlOptions {
         case .connack:
-            if let onConnack = connAckHandler {
-                if let connack = MQTTDecoder.decode(packet, as: ConnackPacket.self) {
-                    if let error = connack.error {
-                        onConnack(.failure(error))
-                    } else {
-                        onConnack(.success(()))
-                    }
-                } else {
+            guard let connack = MQTTDecoder.decode(packet, as: ConnackPacket.self) else {
+                if let onConnack = connAckHandler {
                     onConnack(.failure(.unspecifiedError))
+                    connAckHandler = nil
+                }
+                return
+            }
+            
+            if connack.flags.contains(.sessionPresent) {
+                // TODO: handle exception conditions for Session Present in CONNACK
+            }
+            
+            if let onConnack = connAckHandler {
+                if let error = connack.error {
+                    onConnack(.failure(error))
+                } else {
+                    onConnack(.success(()))
                 }
                 connAckHandler = nil
             }
