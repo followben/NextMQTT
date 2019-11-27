@@ -53,9 +53,9 @@ struct ControlOptions: OptionSet, MQTTCodable {
     
     // PUBLISH
     static let retain       = ControlOptions(rawValue: 1 << 0)
-    static let qos0         = ControlOptions(rawValue: MQTT.QoS.qos0.rawValue << 1)
-    static let qos1         = ControlOptions(rawValue: MQTT.QoS.qos1.rawValue << 1)
-    static let qos2         = ControlOptions(rawValue: MQTT.QoS.qos2.rawValue << 1)
+    static let qos0         = ControlOptions(rawValue: MQTT.QoS.mostOnce.rawValue << 1)
+    static let qos1         = ControlOptions(rawValue: MQTT.QoS.leastOnce.rawValue << 1)
+    static let qos2         = ControlOptions(rawValue: MQTT.QoS.exactlyOnce.rawValue << 1)
     static let dup          = ControlOptions(rawValue: 1 << 2)
 }
 
@@ -134,7 +134,7 @@ struct ConnectPacket: EncodablePacket {
     let username: String?
     let password: String?
     
-    public init(clientId: String, username: String? = nil, password: String? = nil, keepAlive: UInt16 = 10, cleanStart: Bool = false) throws {
+    init(clientId: String, username: String? = nil, password: String? = nil, keepAlive: UInt16 = 10, cleanStart: Bool = false) throws {
         let variableHeaderLength = MQTT.ProtocolName.byteCount + 1 + 1 + 2 + 1
         let payloadlength = clientId.byteCount + (username?.byteCount ?? 0) + (password?.byteCount ?? 0)
         let remainingLength = try UIntVar(payloadlength + variableHeaderLength)
@@ -254,7 +254,7 @@ struct PublishPacket: CodablePacket {
     let propertyLength: UInt8
     let message: Data
     
-    public init(topicName: String, message: Data?) throws {
+    init(topicName: String, message: Data?) throws {
         let variableHeaderLength = topicName.byteCount + 2 + 1 // topic + packetId + propertyLength
         let payloadLength = UInt(message?.count ?? 0)
         let remainingLength = try UIntVar(variableHeaderLength + payloadLength)
@@ -267,20 +267,27 @@ struct PublishPacket: CodablePacket {
 
 // MARK: 3.8 SUBSCRIBE - Subscribe request
 
-struct SubscribeOptions: OptionSet, MQTTEncodable {     // 3.8.3.1 Subscription Options
-    let rawValue: UInt8
-
-    static let qos0                         = SubscribeOptions(rawValue: MQTT.QoS.qos0.rawValue)
-    static let qos1                         = SubscribeOptions(rawValue: MQTT.QoS.qos1.rawValue)
-    static let qos2                         = SubscribeOptions(rawValue: MQTT.QoS.qos2.rawValue)
+public extension MQTT {
     
-    static let noLocal                      = SubscribeOptions(rawValue: 1 << 2)
-    
-    static let retainAsPublished            = SubscribeOptions(rawValue: 1 << 3)
-    
-    static let retainSendOnSubscribe        = SubscribeOptions(rawValue: 0 << 4)
-    static let retainSendIfNewSubscription  = SubscribeOptions(rawValue: 1 << 4)
-    static let retainDoNotSend              = SubscribeOptions(rawValue: 2 << 4)
+    struct SubscribeOptions: OptionSet, MQTTEncodable {     // 3.8.3.1 Subscription Options
+        public let rawValue: UInt8
+        
+        public init(rawValue: UInt8) {
+            self.rawValue = rawValue
+        }
+        
+        public static func qos(_ qos: MQTT.QoS) -> Self {
+            SubscribeOptions(rawValue: qos.rawValue)
+        }
+        
+        public static let noLocal                      = SubscribeOptions(rawValue: 1 << 2)
+        
+        public static let retainAsPublished            = SubscribeOptions(rawValue: 1 << 3)
+        
+        public static let retainSendOnSubscribe        = SubscribeOptions(rawValue: 0 << 4)
+        public static let retainSendIfNewSubscription  = SubscribeOptions(rawValue: 1 << 4)
+        public static let retainDoNotSend              = SubscribeOptions(rawValue: 2 << 4)
+    }
 }
 
 struct SubscribePacket: EncodablePacket {
@@ -293,9 +300,9 @@ struct SubscribePacket: EncodablePacket {
 
     // Payload
     let topicFilter: String
-    let options: SubscribeOptions
+    let options: MQTT.SubscribeOptions
 
-    public init(topicFilter: String, packetId: UInt16, options: SubscribeOptions = [.qos0, .retainSendOnSubscribe]) throws {
+    init(topicFilter: String, packetId: UInt16, options: MQTT.SubscribeOptions) throws {
         let variableHeaderLength: UInt = 2 + 1 + 0 + 0 + 0 // 2 byte packetIdentifier + property length value + subscriptionID byte + subscription ID byte count + user property byte count
         let payloadlength = topicFilter.byteCount + 1 // byte count of the topic + byte count of the options for that topic
         let remainingLength = try UIntVar(payloadlength + variableHeaderLength)

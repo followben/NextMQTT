@@ -22,9 +22,9 @@ public final class MQTT {
     public var onConnectionState: ((ConnectionState) -> Void)?
     
     public enum QoS: UInt8 {
-        case qos0
-        case qos1
-        case qos2
+        case mostOnce
+        case leastOnce
+        case exactlyOnce
     }
     
     public enum ConnectionState {
@@ -142,9 +142,9 @@ public extension MQTT {
         }
     }
     
-    func subscribe(to topicFilter: String, completion: ((Result<QoS, SubscribeError>) -> Void)? = nil) {
+    func subscribe(to topicFilter: String, options: SubscribeOptions = [.qos(.mostOnce), .retainSendOnSubscribe], completion: ((Result<QoS, SubscribeError>) -> Void)? = nil) {
         transportQueue.async {
-            self.sendSubscribe(topicFilter, completion: completion)
+            self.sendSubscribe(topicFilter, options: options, completion: completion)
         }
     }
     
@@ -230,8 +230,8 @@ private extension MQTT {
         transport.send(packet: ping)
     }
     
-    func sendSubscribe(_ topicFilter: String, completion: ((Result<QoS, SubscribeError>) -> Void)? = nil) {
-        let sub = try! SubscribePacket(topicFilter: topicFilter, packetId: nextPacketId())
+    func sendSubscribe(_ topicFilter: String, options: SubscribeOptions, completion: ((Result<QoS, SubscribeError>) -> Void)? = nil) {
+        let sub = try! SubscribePacket(topicFilter: topicFilter, packetId: nextPacketId(), options: options)
         if let handler = completion {
             handlerCoordinator.store(completionHandler: CompletionHandler.subscribeResultHandler(handler), for: sub.packetId)
         }

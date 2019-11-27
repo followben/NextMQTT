@@ -176,14 +176,14 @@ final class PacketTests: XCTestCase {
     }
     
     func testSubscribePacketEncode() {
-        let packet = try! SubscribePacket(topicFilter: "a/b", packetId: 10)
+        let packet = try! SubscribePacket(topicFilter: "a/b", packetId: 10, options: [.qos(.mostOnce)])
         let expected: [UInt8] = [130, 9, 0, 10, 0, 0, 3, 97, 47, 98, 0]
         let actual = try! MQTTEncoder.encode(packet)
         XCTAssertEqual(expected, actual)
     }
     
     func testSubscribePacketWithOptionsEncode() {
-        let packet = try! SubscribePacket(topicFilter: "a/b/c/d", packetId: 65535, options: [.qos2])
+        let packet = try! SubscribePacket(topicFilter: "a/b/c/d", packetId: 65535, options: [.qos(.exactlyOnce)])
         let expected: [UInt8] = [130, 13, 255, 255, 0, 0, 7, 97, 47, 98, 47, 99, 47, 100, 2]
         let actual = try! MQTTEncoder.encode(packet)
         XCTAssertEqual(expected, actual)
@@ -194,7 +194,7 @@ final class PacketTests: XCTestCase {
         let suback = try! MQTTDecoder.decode(SubackPacket.self, data: bytes)
         XCTAssert(suback.fixedHeader.controlOptions.contains(.suback))
         XCTAssertEqual(Int(suback.fixedHeader.remainingLength), 4)
-        XCTAssertEqual(suback.qos, .qos2)
+        XCTAssertEqual(suback.qos, .exactlyOnce)
     }
     
     func testSubackPacketErrorDecode() {
