@@ -263,7 +263,11 @@ private extension MQTT {
     
     func sendPuback(packetId: UInt16) {
         let packet = PubackPacket(packetId: packetId)
-
+        transport.send(packet: packet)
+    }
+    
+    func sendPubrel(packetId: UInt16) {
+        let packet = PubrelPacket(packetId: packetId)
         transport.send(packet: packet)
     }
     
@@ -342,6 +346,8 @@ private extension MQTT {
     }
     
     func processPuback(_ puback: PubackPacket) {
+        let publish = packetStore.removeValueForKey(puback.packetId)
+        assert(publish != nil)
         var handler: ((Result<Void, PublishError>) -> Void)?
         if case .publishResultHandler(let resultHandler) = handlerStore.removeValueForKey(puback.packetId) {
             handler = resultHandler
@@ -350,7 +356,44 @@ private extension MQTT {
             os_log("Received puback for packetId %@ with error: %@", log: .mqtt, type: .error, String(describing: puback.packetId), String(describing: error))
             handler?(.failure(error))
         } else {
-            os_log("Received puback for packetId %@", log: .mqtt, type: .info, String(describing: puback.packetId))
+            os_log("Received puback for packetId %@", log: .mqtt, type: .debug, String(describing: puback.packetId))
+            handler?(.success(()))
+        }
+    }
+    
+    func processPubrec(_ pubrec: PubrecPacket) {
+        let publish = packetStore.removeValueForKey(pubrec.packetId)
+        assert(publish != nil)
+        if let error = pubrec.error {
+            var handler: ((Result<Void, PublishError>) -> Void)?
+            if case .publishResultHandler(let resultHandler) = handlerStore.removeValueForKey(pubrec.packetId) {
+                handler = resultHandler
+            }
+            os_log("Received pubrec for packetId %@ with error: %@", log: .mqtt, type: .error, String(describing: pubrec.packetId), String(describing: error))
+            handler?(.failure(error))
+        } else {
+            os_log("Received pubrec for packetId %@", log: .mqtt, type: .debug, String(describing: pubrec.packetId))
+            packetStore.setValue(.publishReceived(pubrec), forKey: pubrec.packetId)
+            sendPubrel(packetId: pubrec.packetId)
+        }
+    }
+    
+    func processPubrel(_ pubrel: PubrelPacket) {
+        
+    }
+    
+    func processPubcomp(_ pubcomp: PubcompPacket) {
+        let pubrec = packetStore.removeValueForKey(pubcomp.packetId)
+        assert(pubrec != nil)
+        var handler: ((Result<Void, PublishError>) -> Void)?
+        if case .publishResultHandler(let resultHandler) = handlerStore.removeValueForKey(pubcomp.packetId) {
+            handler = resultHandler
+        }
+        if let error = pubcomp.error {
+            os_log("Received pubcomp for packetId %@ with error: %@", log: .mqtt, type: .error, String(describing: pubcomp.packetId), String(describing: error))
+            handler?(.failure(error))
+        } else {
+            os_log("Received pubcomp for packetId %@", log: .mqtt, type: .debug, String(describing: pubcomp.packetId))
             handler?(.success(()))
         }
     }
@@ -388,6 +431,18 @@ extension MQTT: TransportDelegate {
             if let puback = MQTTDecoder.decode(packet, as: PubackPacket.self) {
                 processPuback(puback)
             }
+        case .pubrec:
+            if let pubrec = MQTTDecoder.decode(packet, as: PubrecPacket.self) {
+                processPubrec(pubrec)
+            }
+        case .pubrel:
+            if let pubrel = MQTTDecoder.decode(packet, as: PubrelPacket.self) {
+                processPubrel(pubrel)
+            }
+        case .pubcomp:
+            if let pubcomp = MQTTDecoder.decode(packet, as: PubcompPacket.self) {
+                processPubcomp(pubcomp)
+            }
         default:
             os_log("Unhandled packet: %@", log: .mqtt, type: .error, String(describing: packet.fixedHeader.controlOptions))
         }
@@ -415,6 +470,7 @@ fileprivate extension MQTT {
     
     enum UnacknowledgedPacket {
         case publish(PublishPacket)
+        case publishReceived(PubrecPacket)
     }
     
     class SynchronizedStore<Key: Hashable, Value> {
