@@ -262,7 +262,7 @@ private extension MQTT {
     }
     
     func sendPuback(packetId: UInt16) {
-        let packet = try! PubackPacket(packetId: packetId)
+        let packet = PubackPacket(packetId: packetId)
 
         transport.send(packet: packet)
     }

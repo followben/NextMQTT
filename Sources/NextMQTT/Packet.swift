@@ -252,6 +252,22 @@ extension ConnackPacket: MQTTDecodable {
 
 // MARK: 3.3 PUBLISH – Publish message
 
+public extension MQTT {
+    enum PublishError: UInt8, Error {
+        case noMatchingSubscribers          = 0x10
+        case unspecifiedError               = 0x80
+        case implementaionSpecificError     = 0x83
+        case notAuthorized                  = 0x87
+        case topicNameInvalid               = 0x90
+        case packetIdInUse                  = 0x91
+        case packetIdNotFound               = 0x92
+        case quotaExceeded                  = 0x97
+        case payloadFormatInvalid           = 0x99
+    }
+}
+
+extension MQTT.PublishError: MQTTCodable {}
+
 struct PublishPacket: CodablePacket {
     
     enum Error: Swift.Error {
@@ -295,21 +311,6 @@ struct PublishPacket: CodablePacket {
 
 // MARK: 3.4 PUBACK – Publish acknowledgement
 
-public extension MQTT {
-    enum PublishError: UInt8, Error {
-        case noMatchingSubscribers          = 0x10
-        case unspecifiedError               = 0x80
-        case implementaionSpecificError     = 0x83
-        case notAuthorized                  = 0x87
-        case topicNameInvalid               = 0x90
-        case packetIdInUse                  = 0x91
-        case quotaExceeded                  = 0x97
-        case payloadFormatInvalid           = 0x99
-    }
-}
-
-extension MQTT.PublishError: MQTTCodable {}
-
 struct PubackPacket: CodablePacket {
     
     let fixedHeader: FixedHeader
@@ -323,9 +324,80 @@ struct PubackPacket: CodablePacket {
         self.error = (try? container.decode(MQTT.PublishError.self)) ?? nil
     }
     
-    init(packetId: UInt16, error: MQTT.PublishError? = nil) throws {
+    init(packetId: UInt16, error: MQTT.PublishError? = nil) {
         let remainingLength: UIntVar = (error == nil) ? 2 : 3
         self.fixedHeader = FixedHeader(controlOptions: [.packetType(.puback), .reserved0], remainingLength: remainingLength)
+        self.packetId = packetId
+        self.error = error
+    }
+}
+
+// MARK: 3.5 PUBREC – Publish received (QoS 2 delivery part 1)
+
+struct PubrecPacket: CodablePacket {
+    
+    let fixedHeader: FixedHeader
+    let packetId: UInt16                // 3.5.2 PUBREC Variable Header
+    let error: MQTT.PublishError?
+    
+    init(fromMQTTDecoder decoder: MQTTDecoder) throws {
+        var container = try decoder.unkeyedContainer()
+        self.fixedHeader = try container.decode(FixedHeader.self)
+        self.packetId = try container.decode(UInt16.self)
+        self.error = (try? container.decode(MQTT.PublishError.self)) ?? nil
+    }
+    
+    init(packetId: UInt16, error: MQTT.PublishError? = nil) {
+        let remainingLength: UIntVar = (error == nil) ? 2 : 3
+        self.fixedHeader = FixedHeader(controlOptions: [.packetType(.pubrec), .reserved0], remainingLength: remainingLength)
+        self.packetId = packetId
+        self.error = error
+    }
+}
+
+// MARK: 3.6 PUBREL – Publish release (QoS 2 delivery part 2)
+
+struct PubrelPacket: CodablePacket {
+    
+    let fixedHeader: FixedHeader
+    let packetId: UInt16                // 3.6.2 PUBREL Variable Header
+    let error: MQTT.PublishError?
+    
+    init(fromMQTTDecoder decoder: MQTTDecoder) throws {
+        var container = try decoder.unkeyedContainer()
+        self.fixedHeader = try container.decode(FixedHeader.self)
+        self.packetId = try container.decode(UInt16.self)
+        self.error = (try? container.decode(MQTT.PublishError.self)) ?? nil
+    }
+    
+    init(packetId: UInt16, error: MQTT.PublishError? = nil) {
+        precondition(error == nil || error == .packetIdNotFound, "Invalid PUBREL error, expected 0x92 PacketId Not Found")
+        let remainingLength: UIntVar = (error == nil) ? 2 : 3
+        self.fixedHeader = FixedHeader(controlOptions: [.packetType(.pubrel), .reserved1], remainingLength: remainingLength)
+        self.packetId = packetId
+        self.error = error
+    }
+}
+
+// MARK: 3.7 PUBCOMP – Publish complete (QoS 2 delivery part 3)
+
+struct PubcompPacket: CodablePacket {
+    
+    let fixedHeader: FixedHeader
+    let packetId: UInt16                // 3.7.2 PUBCOMP Variable Header
+    let error: MQTT.PublishError?
+    
+    init(fromMQTTDecoder decoder: MQTTDecoder) throws {
+        var container = try decoder.unkeyedContainer()
+        self.fixedHeader = try container.decode(FixedHeader.self)
+        self.packetId = try container.decode(UInt16.self)
+        self.error = (try? container.decode(MQTT.PublishError.self)) ?? nil
+    }
+    
+    init(packetId: UInt16, error: MQTT.PublishError? = nil) {
+        precondition(error == nil || error == .packetIdNotFound, "Invalid PUBCOMP error, expected 0x92 PacketId Not Found")
+        let remainingLength: UIntVar = (error == nil) ? 2 : 3
+        self.fixedHeader = FixedHeader(controlOptions: [.packetType(.pubcomp), .reserved0], remainingLength: remainingLength)
         self.packetId = packetId
         self.error = error
     }

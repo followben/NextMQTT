@@ -305,7 +305,7 @@ final class PacketTests: XCTestCase {
         XCTAssertEqual(publish.propertyLength, 0)
     }
     
-    func testSimplePubackDecode() {
+    func testPubackDecode() {
         let bytes: [UInt8] = [64, 2, 0, 15]
         let puback = try! MQTTDecoder.decode(PubackPacket.self, data: bytes)
         XCTAssertEqual(puback.fixedHeader.controlOptions.packetType, .puback)
@@ -314,25 +314,118 @@ final class PacketTests: XCTestCase {
     }
     
     func testPubackWithReasonCodeDecode() {
-        let bytes: [UInt8] = [64, 4, 0, 1, 16]
+        let bytes: [UInt8] = [64, 3, 0, 1, 16]
         let puback = try! MQTTDecoder.decode(PubackPacket.self, data: bytes)
         XCTAssertEqual(puback.fixedHeader.controlOptions.packetType, .puback)
-        XCTAssertEqual(puback.fixedHeader.remainingLength, 4)
+        XCTAssertEqual(puback.fixedHeader.remainingLength, 3)
         XCTAssertEqual(puback.packetId, 1)
         XCTAssertEqual(puback.error, .noMatchingSubscribers)
     }
     
     func testPubackEncode() {
-        let puback = try! PubackPacket(packetId: 1)
+        let puback = PubackPacket(packetId: 1)
         let expected: [UInt8] = [64, 2, 0, 1]
         let actual = try! MQTTEncoder.encode(puback)
         XCTAssertEqual(expected, actual)
     }
     
     func testPubackWithReasonCodeEncode() {
-        let puback = try! PubackPacket(packetId: 12, error: .unspecifiedError)
+        let puback = PubackPacket(packetId: 12, error: .unspecifiedError)
         let expected: [UInt8] = [64, 3, 0, 12, 128]
         let actual = try! MQTTEncoder.encode(puback)
+        XCTAssertEqual(expected, actual)
+    }
+    
+    func testPubrecDecode() {
+        let bytes: [UInt8] = [80, 2, 0, 15]
+        let pubrec = try! MQTTDecoder.decode(PubrecPacket.self, data: bytes)
+        XCTAssertEqual(pubrec.fixedHeader.controlOptions.packetType, .pubrec)
+        XCTAssertEqual(pubrec.fixedHeader.remainingLength, 2)
+        XCTAssertEqual(pubrec.packetId, 15)
+    }
+    
+    func testPubrecWithReasonCodeDecode() {
+        let bytes: [UInt8] = [80, 3, 0, 1, 16]
+        let pubrec = try! MQTTDecoder.decode(PubrecPacket.self, data: bytes)
+        XCTAssertEqual(pubrec.fixedHeader.controlOptions.packetType, .pubrec)
+        XCTAssertEqual(pubrec.fixedHeader.remainingLength, 3)
+        XCTAssertEqual(pubrec.packetId, 1)
+        XCTAssertEqual(pubrec.error, .noMatchingSubscribers)
+    }
+    
+    func testPubrecEncode() {
+        let pubrec = PubrecPacket(packetId: 1)
+        let expected: [UInt8] = [80, 2, 0, 1]
+        let actual = try! MQTTEncoder.encode(pubrec)
+        XCTAssertEqual(expected, actual)
+    }
+    
+    func testPubrecWithReasonCodeEncode() {
+        let pubrec = PubrecPacket(packetId: 12, error: .unspecifiedError)
+        let expected: [UInt8] = [80, 3, 0, 12, 128]
+        let actual = try! MQTTEncoder.encode(pubrec)
+        XCTAssertEqual(expected, actual)
+    }
+    
+    func testPubrelDecode() {
+        let bytes: [UInt8] = [98, 2, 0, 15]
+        let pubrel = try! MQTTDecoder.decode(PubrelPacket.self, data: bytes)
+        XCTAssertEqual(pubrel.fixedHeader.controlOptions.packetType, .pubrel)
+        XCTAssertEqual(pubrel.fixedHeader.remainingLength, 2)
+        XCTAssertEqual(pubrel.packetId, 15)
+    }
+    
+    func testPubrelWithReasonCodeDecode() {
+        let bytes: [UInt8] = [98, 3, 0, 1, 146]
+        let pubrel = try! MQTTDecoder.decode(PubrelPacket.self, data: bytes)
+        XCTAssertEqual(pubrel.fixedHeader.controlOptions.packetType, .pubrel)
+        XCTAssertEqual(pubrel.fixedHeader.remainingLength, 3)
+        XCTAssertEqual(pubrel.packetId, 1)
+        XCTAssertEqual(pubrel.error, .packetIdNotFound)
+    }
+    
+    func testPubrelEncode() {
+        let pubrel = PubrelPacket(packetId: 1)
+        let expected: [UInt8] = [98, 2, 0, 1]
+        let actual = try! MQTTEncoder.encode(pubrel)
+        XCTAssertEqual(expected, actual)
+    }
+    
+    func testPubrelWithReasonCodeEncode() {
+        let pubrel = PubrelPacket(packetId: 12, error: .packetIdNotFound)
+        let expected: [UInt8] = [98, 3, 0, 12, 146]
+        let actual = try! MQTTEncoder.encode(pubrel)
+        XCTAssertEqual(expected, actual)
+    }
+    
+    func testPubcompDecode() {
+        let bytes: [UInt8] = [112, 2, 0, 15]
+        let pubcomp = try! MQTTDecoder.decode(PubrelPacket.self, data: bytes)
+        XCTAssertEqual(pubcomp.fixedHeader.controlOptions.packetType, .pubcomp)
+        XCTAssertEqual(pubcomp.fixedHeader.remainingLength, 2)
+        XCTAssertEqual(pubcomp.packetId, 15)
+    }
+    
+    func testPubcomWithReasonCodeDecode() {
+        let bytes: [UInt8] = [112, 3, 0, 1, 146]
+        let pubcomp = try! MQTTDecoder.decode(PubcompPacket.self, data: bytes)
+        XCTAssertEqual(pubcomp.fixedHeader.controlOptions.packetType, .pubcomp)
+        XCTAssertEqual(pubcomp.fixedHeader.remainingLength, 3)
+        XCTAssertEqual(pubcomp.packetId, 1)
+        XCTAssertEqual(pubcomp.error, .packetIdNotFound)
+    }
+    
+    func testPubcompEncode() {
+        let pubcomp = PubcompPacket(packetId: 1)
+        let expected: [UInt8] = [112, 2, 0, 1]
+        let actual = try! MQTTEncoder.encode(pubcomp)
+        XCTAssertEqual(expected, actual)
+    }
+    
+    func testPubcompWithReasonCodeEncode() {
+        let pubcomp = PubcompPacket(packetId: 12, error: .packetIdNotFound)
+        let expected: [UInt8] = [112, 3, 0, 12, 146]
+        let actual = try! MQTTEncoder.encode(pubcomp)
         XCTAssertEqual(expected, actual)
     }
 }
