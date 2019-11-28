@@ -53,21 +53,6 @@ struct ControlOptions: OptionSet, MQTTCodable {
         ControlOptions(rawValue: packetType.rawValue << 4)
     }
     
-    static let connect      = ControlOptions(rawValue: PacketType.connect.rawValue << 4)
-    static let connack      = ControlOptions(rawValue: PacketType.connack.rawValue << 4)
-    static let publish      = ControlOptions(rawValue: PacketType.publish.rawValue << 4)
-    static let puback       = ControlOptions(rawValue: PacketType.puback.rawValue << 4)
-    static let pubrec       = ControlOptions(rawValue: PacketType.pubrec.rawValue << 4)
-    static let pubrel       = ControlOptions(rawValue: PacketType.pubrel.rawValue << 4)
-    static let pubcomp      = ControlOptions(rawValue: PacketType.pubcomp.rawValue << 4)
-    static let subscribe    = ControlOptions(rawValue: PacketType.subscribe.rawValue << 4)
-    static let suback       = ControlOptions(rawValue: PacketType.suback.rawValue << 4)
-    static let unsubscribe  = ControlOptions(rawValue: PacketType.unsubscribe.rawValue << 4)
-    static let unsuback     = ControlOptions(rawValue: PacketType.unsuback.rawValue << 4)
-    static let pingreq      = ControlOptions(rawValue: PacketType.pingreq.rawValue << 4)
-    static let pingresp     = ControlOptions(rawValue: PacketType.pingresp.rawValue << 4)
-    static let disconnect   = ControlOptions(rawValue: PacketType.disconnect.rawValue << 4)
-    
     // 2.1.3 Flags specific to each MQTT Control Packet type
     
     // CONNECT, CONNACK, PUBACK, PUBREC, PUBCOMP, SUBACK, UNSUBACK, PINGREQ, PINGRESP, DISCONNECT, AUTH
@@ -163,7 +148,7 @@ struct ConnectPacket: EncodablePacket {
         let variableHeaderLength = MQTT.ProtocolName.byteCount + 1 + 1 + 2 + 1
         let payloadlength = clientId.byteCount + (username?.byteCount ?? 0) + (password?.byteCount ?? 0)
         let remainingLength = try UIntVar(payloadlength + variableHeaderLength)
-        self.fixedHeader = FixedHeader(controlOptions: [.connect, .reserved0], remainingLength: remainingLength)
+        self.fixedHeader = FixedHeader(controlOptions: [.packetType(.connect), .reserved0], remainingLength: remainingLength)
         self.clientId = clientId
         self.username = username
         self.password = password
@@ -286,7 +271,7 @@ struct PublishPacket: CodablePacket {
         let variableHeaderLength = topicName.byteCount + packetIdLength + 1 // topic + packetId + propertyLength
         let payloadLength = UInt(message?.count ?? 0)
         let remainingLength = try UIntVar(variableHeaderLength + payloadLength)
-        self.fixedHeader = FixedHeader(controlOptions: [.publish, .qos(qos)], remainingLength: remainingLength)
+        self.fixedHeader = FixedHeader(controlOptions: [.packetType(.publish), .qos(qos)], remainingLength: remainingLength)
         self.topicName = topicName
         self.packetId = packetId
         self.propertyLength = 0
@@ -340,7 +325,7 @@ struct PubackPacket: CodablePacket {
     
     init(packetId: UInt16, error: MQTT.PublishError? = nil) throws {
         let remainingLength: UIntVar = (error == nil) ? 2 : 3
-        self.fixedHeader = FixedHeader(controlOptions: [.puback, .reserved0], remainingLength: remainingLength)
+        self.fixedHeader = FixedHeader(controlOptions: [.packetType(.puback), .reserved0], remainingLength: remainingLength)
         self.packetId = packetId
         self.error = error
     }
@@ -388,7 +373,7 @@ struct SubscribePacket: EncodablePacket {
         let payloadlength = topicFilter.byteCount + 1 // byte count of the topic + byte count of the options for that topic
         let remainingLength = try UIntVar(payloadlength + variableHeaderLength)
 
-        self.fixedHeader = FixedHeader(controlOptions: [.subscribe, .reserved1], remainingLength: remainingLength)
+        self.fixedHeader = FixedHeader(controlOptions: [.packetType(.subscribe), .reserved1], remainingLength: remainingLength)
         self.packetId = packetId
         self.topicFilter = topicFilter
         self.options = options
@@ -464,7 +449,7 @@ struct UnsubscribePacket: EncodablePacket {
         let payloadlength = topicFilter.byteCount
         let remainingLength = try UIntVar(payloadlength + variableHeaderLength)
 
-        self.fixedHeader = FixedHeader(controlOptions: [.unsubscribe, .reserved1], remainingLength: remainingLength)
+        self.fixedHeader = FixedHeader(controlOptions: [.packetType(.unsubscribe), .reserved1], remainingLength: remainingLength)
         self.packetId = packetId
         self.topicFilter = topicFilter
     }
@@ -518,11 +503,11 @@ struct UnsubackPacket: DecodablePacket {
 // MARK: 3.12 PINGREQ – PING request
 
 struct PingReqPacket: EncodablePacket {
-    let fixedHeader: FixedHeader = FixedHeader(controlOptions: [.pingreq, .reserved0], remainingLength: 0)
+    let fixedHeader: FixedHeader = FixedHeader(controlOptions: [.packetType(.pingreq), .reserved0], remainingLength: 0)
 }
 
 // MARK: 3.14 DISCONNECT – Disconnect notification
 
 struct DisconnectPacket: EncodablePacket {
-    let fixedHeader: FixedHeader = FixedHeader(controlOptions: [.disconnect, .reserved0], remainingLength: 0)
+    let fixedHeader: FixedHeader = FixedHeader(controlOptions: [.packetType(.disconnect), .reserved0], remainingLength: 0)
 }

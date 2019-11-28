@@ -101,7 +101,7 @@ final class PacketTests: XCTestCase {
     }
     
     func testFixedHeaderEncode() {
-        let header = FixedHeader(controlOptions: [.disconnect, .reserved0], remainingLength: 0)
+        let header = FixedHeader(controlOptions: [.packetType(.disconnect), .reserved0], remainingLength: 0)
         let expected: [UInt8] = [224, 0]
         let actual = try! MQTTEncoder.encode(header)
         XCTAssertEqual(expected, actual)
@@ -110,7 +110,7 @@ final class PacketTests: XCTestCase {
     func testFixedHeaderDecode() {
         let bytes: [UInt8] = [32, 6]
         let fixedHeader = try! MQTTDecoder.decode(FixedHeader.self, data: bytes)
-        XCTAssert(fixedHeader.controlOptions.contains(.connack))
+        XCTAssertEqual(fixedHeader.controlOptions.packetType, .connack)
         XCTAssertEqual(fixedHeader.remainingLength, 6)
     }
     
@@ -138,7 +138,7 @@ final class PacketTests: XCTestCase {
     func testConnackPacketDecode() {
         let bytes: [UInt8] = [32, 6, 0, 0, 3, 34, 0, 10]
         let connack = try! MQTTDecoder.decode(ConnackPacket.self, data: bytes)
-        XCTAssert(connack.fixedHeader.controlOptions.contains(.connack))
+        XCTAssertEqual(connack.fixedHeader.controlOptions.packetType, .connack)
         XCTAssertEqual(Int(connack.fixedHeader.remainingLength), 6)
         XCTAssertFalse(connack.flags.contains(.sessionPresent))
         XCTAssertNil(connack.error)
@@ -148,7 +148,7 @@ final class PacketTests: XCTestCase {
     func testConnackPacketErrorDecode() {
         let bytes: [UInt8] = [32, 3, 0, 151, 3]
         let connack = try! MQTTDecoder.decode(ConnackPacket.self, data: bytes)
-        XCTAssert(connack.fixedHeader.controlOptions.contains(.connack))
+        XCTAssertEqual(connack.fixedHeader.controlOptions.packetType, .connack)
         XCTAssertEqual(connack.error, .quotaExceeded)
     }
 
@@ -192,7 +192,7 @@ final class PacketTests: XCTestCase {
     func testSubackPacketDecode() {
         let bytes: [UInt8] = [144, 4, 0, 10, 0, 2]
         let suback = try! MQTTDecoder.decode(SubackPacket.self, data: bytes)
-        XCTAssert(suback.fixedHeader.controlOptions.contains(.suback))
+        XCTAssertEqual(suback.fixedHeader.controlOptions.packetType, .suback)
         XCTAssertEqual(Int(suback.fixedHeader.remainingLength), 4)
         XCTAssertEqual(suback.qos, .exactlyOnce)
     }
@@ -200,7 +200,7 @@ final class PacketTests: XCTestCase {
     func testSubackPacketErrorDecode() {
         let bytes: [UInt8] = [144, 4, 255, 255, 0, 143]
         let suback = try! MQTTDecoder.decode(SubackPacket.self, data: bytes)
-        XCTAssert(suback.fixedHeader.controlOptions.contains(.suback))
+        XCTAssertEqual(suback.fixedHeader.controlOptions.packetType, .suback)
         XCTAssertEqual(Int(suback.fixedHeader.remainingLength), 4)
         XCTAssertEqual(suback.error, .topicFilterInvalid)
     }
@@ -234,7 +234,7 @@ final class PacketTests: XCTestCase {
     func testUnsubackPacketDecode() {
         let bytes: [UInt8] = [176, 4, 0, 12, 0, 0]
         let unsuback = try! MQTTDecoder.decode(UnsubackPacket.self, data: bytes)
-        XCTAssert(unsuback.fixedHeader.controlOptions.contains(.unsuback))
+        XCTAssertEqual(unsuback.fixedHeader.controlOptions.packetType, .unsuback)
         XCTAssertEqual(Int(unsuback.fixedHeader.remainingLength), 4)
         XCTAssertEqual(unsuback.packetId, 12)
     }
@@ -270,7 +270,7 @@ final class PacketTests: XCTestCase {
         let message: [UInt8] = [84, 114, 121, 32, 84, 104, 105, 115] // "Try This" as utf8
         let bytes: [UInt8] = fixedHeader + topic + propertyLength + message
         let publish = try! MQTTDecoder.decode(PublishPacket.self, data: bytes)
-        XCTAssertEqual(publish.fixedHeader.controlOptions, [.publish])
+        XCTAssertEqual(publish.fixedHeader.controlOptions.packetType, .publish)
         XCTAssertEqual(publish.fixedHeader.remainingLength, 16)
         XCTAssertEqual(publish.topicName, "/pong")
         XCTAssertEqual(publish.propertyLength, 0)
@@ -308,7 +308,7 @@ final class PacketTests: XCTestCase {
     func testSimplePubackDecode() {
         let bytes: [UInt8] = [64, 2, 0, 15]
         let puback = try! MQTTDecoder.decode(PubackPacket.self, data: bytes)
-        XCTAssertEqual(puback.fixedHeader.controlOptions, [.puback])
+        XCTAssertEqual(puback.fixedHeader.controlOptions.packetType, .puback)
         XCTAssertEqual(puback.fixedHeader.remainingLength, 2)
         XCTAssertEqual(puback.packetId, 15)
     }
@@ -316,7 +316,7 @@ final class PacketTests: XCTestCase {
     func testPubackWithReasonCodeDecode() {
         let bytes: [UInt8] = [64, 4, 0, 1, 16]
         let puback = try! MQTTDecoder.decode(PubackPacket.self, data: bytes)
-        XCTAssertEqual(puback.fixedHeader.controlOptions, [.puback])
+        XCTAssertEqual(puback.fixedHeader.controlOptions.packetType, .puback)
         XCTAssertEqual(puback.fixedHeader.remainingLength, 4)
         XCTAssertEqual(puback.packetId, 1)
         XCTAssertEqual(puback.error, .noMatchingSubscribers)
@@ -402,7 +402,7 @@ final class TransportTests: XCTestCase, TransportDelegate {
         
         XCTAssert(didStartCalled)
         XCTAssertEqual(testServer.bytesReceived, connectBytes)
-        XCTAssertEqual(packetsReceived.first?.fixedHeader.controlOptions, .connack)
+        XCTAssertEqual(packetsReceived.first?.fixedHeader.controlOptions.packetType, .connack)
         XCTAssert(!didStopCalled) // should not call didStop if stop() invoked
     }
     
