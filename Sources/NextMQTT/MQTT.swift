@@ -1,14 +1,14 @@
 //
-//  MQTT.swift
 //  NextMQTT
 //
-//  Created by Ben Stovold on 23/10/19.
+//  Copyright (c) Ben Stovold 2019
+//  MIT license, see LICENSE file for details
 //
 
 import os
 import Foundation
 
-extension OSLog {
+internal extension OSLog {
     static let mqtt = OSLog(subsystem: Bundle.main.bundleIdentifier!, category: "mqtt")
 }
 
@@ -518,6 +518,7 @@ fileprivate extension MQTT {
             }
         }
 
+        @discardableResult
         fileprivate func removeValueForKey(_ key: Key) -> Value? {
             var value: Value?
             queue.sync {
