@@ -250,7 +250,7 @@ private extension MQTT {
         let packet = try! PublishPacket(topicName: topicName, qos: qos, packetId: packetId, message: message)
         if qos != .mostOnce {
             let packetId = packet.packetId!
-            packetStore.setValue(.publish(packet), forKey: packetId)
+            packetStore.setValue(.publishSent(packet), forKey: packetId)
             if let completion = completion {
                 handlerStore.setValue(.publishResultHandler(completion), forKey: packetId)
             }
@@ -266,8 +266,18 @@ private extension MQTT {
         transport.send(packet: packet)
     }
     
+    func sendPubrec(packetId: UInt16) {
+        let packet = PubrecPacket(packetId: packetId)
+        transport.send(packet: packet)
+    }
+    
     func sendPubrel(packetId: UInt16) {
         let packet = PubrelPacket(packetId: packetId)
+        transport.send(packet: packet)
+    }
+    
+    func sendPubcomp(packetId: UInt16) {
+        let packet = PubcompPacket(packetId: packetId)
         transport.send(packet: packet)
     }
     
@@ -339,10 +349,18 @@ private extension MQTT {
     }
     
     func processPublish(_ publish: PublishPacket) {
-        if publish.fixedHeader.controlOptions.contains(.qos(.leastOnce)), let packetId = publish.packetId {
-            sendPuback(packetId: packetId)
+        os_log("Received publish for packetId %@", log: .mqtt, type: .debug, String(describing: publish.packetId))
+        if publish.fixedHeader.controlOptions.contains(.qos(.exactlyOnce)) {
+            assert(publish.packetId != nil)
+            assert(publish.topicName.count > 0)
+            packetStore.setValue(.publishReceived(publish), forKey: publish.packetId!)
+            sendPubrec(packetId: publish.packetId!)
+        } else {
+            if publish.fixedHeader.controlOptions.contains(.qos(.leastOnce)), let packetId = publish.packetId {
+                sendPuback(packetId: packetId)
+            }
+            onMessage?(publish.topicName, publish.message)
         }
-        onMessage?(publish.topicName, publish.message)
     }
     
     func processPuback(_ puback: PubackPacket) {
@@ -373,13 +391,20 @@ private extension MQTT {
             handler?(.failure(error))
         } else {
             os_log("Received pubrec for packetId %@", log: .mqtt, type: .debug, String(describing: pubrec.packetId))
-            packetStore.setValue(.publishReceived(pubrec), forKey: pubrec.packetId)
+            packetStore.setValue(.pubRecSent(pubrec), forKey: pubrec.packetId)
             sendPubrel(packetId: pubrec.packetId)
         }
     }
     
     func processPubrel(_ pubrel: PubrelPacket) {
-        
+        let packetId = pubrel.packetId
+        if case .publishReceived(let publish) = packetStore.removeValueForKey(packetId) {
+            os_log("Received pubrel for packetId %@", log: .mqtt, type: .debug, String(describing: packetId))
+            onMessage?(publish.topicName, publish.message)
+        } else {
+            os_log("Received pubrel for unknown packetId %@", log: .mqtt, type: .error, String(describing: packetId))
+        }
+        sendPubcomp(packetId: packetId)
     }
     
     func processPubcomp(_ pubcomp: PubcompPacket) {
@@ -469,8 +494,9 @@ fileprivate extension MQTT {
     }
     
     enum UnacknowledgedPacket {
-        case publish(PublishPacket)
-        case publishReceived(PubrecPacket)
+        case publishSent(PublishPacket)
+        case pubRecSent(PubrecPacket)
+        case publishReceived(PublishPacket)
     }
     
     class SynchronizedStore<Key: Hashable, Value> {
