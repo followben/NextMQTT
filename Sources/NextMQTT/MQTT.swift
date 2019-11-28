@@ -58,7 +58,7 @@ public final class MQTT {
         return clientId
     }
     private var pingInterval: UInt16 {
-        options[.pingInterval] as? UInt16 ?? 10
+        options[.pingInterval] as? UInt16 ?? 20
     }
     private var maxBuffer: Int {
         options[.maxBuffer] as? Int ?? 4096
@@ -221,13 +221,11 @@ private extension MQTT {
     
     func sendConnect() {
         let conn = try! ConnectPacket(clientId: clientId, username: username, password: password, keepAlive: pingInterval, cleanStart: cleanStart)
-        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: conn))
         transport.send(packet: conn)
     }
 
     func sendPing() {
         let ping = PingReqPacket()
-        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: ping))
         transport.send(packet: ping)
     }
     
@@ -236,7 +234,6 @@ private extension MQTT {
         if let handler = completion {
             handlerStore.setValue(CompletionHandler.subscribeResultHandler(handler), forKey: sub.packetId)
         }
-        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: sub))
         transport.send(packet: sub)
     }
     
@@ -245,7 +242,6 @@ private extension MQTT {
         if let handler = completion {
             handlerStore.setValue(CompletionHandler.unsubscribeResultHandler(handler), forKey: unsub.packetId)
         }
-        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: unsub))
         transport.send(packet: unsub)
     }
     
@@ -259,26 +255,30 @@ private extension MQTT {
                 handlerStore.setValue(.publishResultHandler(completion), forKey: packetId)
             }
         }
-        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: packet))
         transport.send(packet: packet)
         if qos == .mostOnce {
             completion?(.success(()))
         }
     }
     
+    func sendPuback(packetId: UInt16) {
+        let packet = try! PubackPacket(packetId: packetId)
+
+        transport.send(packet: packet)
+    }
+    
     func sendDisconnect() {
         connectionState = .disconnecting
         let disconnect = DisconnectPacket()
-        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: disconnect))
         transport.send(packet: disconnect)
         transport.stop()
         connectionState = .disconnected
     }
 }
 
-// MARK: - Receiving (TransportDelegate)
+// MARK: - Receiving
 
-extension MQTTDecoder {
+private extension MQTTDecoder {
     static func decode<T: MQTTDecodable>(_ packet: MQTTPacket, as type: T.Type) -> T? {
         let result = Result { try MQTTDecoder.decode(T.self, data: packet.bytes) }
         guard case .success(let packet) = result else {
@@ -289,89 +289,107 @@ extension MQTTDecoder {
     }
 }
 
+private extension MQTT {
+    
+    func processConnack(_ connack: ConnackPacket) {
+        if connack.flags.contains(.sessionPresent) {
+            // TODO: handle exception conditions for Session Present in CONNACK
+        }
+        
+        if let onConnack = connAckHandler {
+            if let error = connack.error {
+                onConnack(.failure(error))
+            } else {
+                onConnack(.success(()))
+            }
+            connAckHandler = nil
+        }
+    }
+    
+    func processSuback(_ suback: SubackPacket) {
+        var handler: ((Result<QoS, SubscribeError>) -> Void)?
+        if case .subscribeResultHandler(let resultHandler) = handlerStore.removeValueForKey(suback.packetId) {
+            handler = resultHandler
+        }
+        if let qos = suback.qos {
+            os_log("Subscribe successful: %@", log: .mqtt, type: .info, String(describing: qos))
+            handler?(.success(qos))
+        } else if let error = suback.error {
+            os_log("Subscribe error: %@", log: .mqtt, type: .error, String(describing: error))
+            handler?(.failure(error))
+        }
+    }
+    
+    func processUnsuback(_ unsuback: UnsubackPacket) {
+        var handler: ((Result<Void, UnsubscribeError>) -> Void)?
+        if case .unsubscribeResultHandler(let resultHandler) = handlerStore.removeValueForKey(unsuback.packetId) {
+            handler = resultHandler
+        }
+        if let error = unsuback.error {
+            os_log("Unsubscribe error: %@", log: .mqtt, type: .error, String(describing: error))
+            handler?(.failure(error))
+        } else {
+            os_log("Unsubscribe successful", log: .mqtt, type: .info)
+            handler?(.success(()))
+        }
+    }
+    
+    func processPublish(_ publish: PublishPacket) {
+        if publish.fixedHeader.controlOptions.contains(.qos(.leastOnce)), let packetId = publish.packetId {
+            sendPuback(packetId: packetId)
+        }
+        onMessage?(publish.topicName, publish.message)
+    }
+    
+    func processPuback(_ puback: PubackPacket) {
+        var handler: ((Result<Void, PublishError>) -> Void)?
+        if case .publishResultHandler(let resultHandler) = handlerStore.removeValueForKey(puback.packetId) {
+            handler = resultHandler
+        }
+        if let error = puback.error {
+            os_log("Received puback for packetId %@ with error: %@", log: .mqtt, type: .error, String(describing: puback.packetId), String(describing: error))
+            handler?(.failure(error))
+        } else {
+            os_log("Received puback for packetId %@", log: .mqtt, type: .info, String(describing: puback.packetId))
+            handler?(.success(()))
+        }
+    }
+}
+
+// MARK: - TransportDelegate
+
 extension MQTT: TransportDelegate {
     func didStart(transport: Transport) {
         sendConnect()
     }
 
     func didReceive(packet: MQTTPacket, transport: Transport) {
-        switch packet.fixedHeader.controlOptions {
+        switch packet.fixedHeader.controlOptions.packetType {
         case .connack:
-            guard let connack = MQTTDecoder.decode(packet, as: ConnackPacket.self) else {
-                if let onConnack = connAckHandler {
-                    onConnack(.failure(.unspecifiedError))
-                    connAckHandler = nil
-                }
-                return
-            }
-            
-            if connack.flags.contains(.sessionPresent) {
-                // TODO: handle exception conditions for Session Present in CONNACK
-            }
-            
-            if let onConnack = connAckHandler {
-                if let error = connack.error {
-                    onConnack(.failure(error))
-                } else {
-                    onConnack(.success(()))
-                }
+            if let connack = MQTTDecoder.decode(packet, as: ConnackPacket.self) {
+                processConnack(connack)
+            } else if let onConnack = connAckHandler {
+                onConnack(.failure(.unspecifiedError))
                 connAckHandler = nil
             }
-            
         case .suback:
-            guard let suback = MQTTDecoder.decode(packet, as: SubackPacket.self) else { return }
-            
-            var handler: ((Result<QoS, SubscribeError>) -> Void)?
-            if case .subscribeResultHandler(let resultHandler) = handlerStore.removeValueForKey(suback.packetId) {
-                handler = resultHandler
+            if let suback = MQTTDecoder.decode(packet, as: SubackPacket.self) {
+                processSuback(suback)
             }
-            
-            if let qos = suback.qos {
-                os_log("Subscribe successful: %@", log: .mqtt, type: .info, String(describing: qos))
-                handler?(.success(qos))
-            } else if let error = suback.error {
-                os_log("Subscribe error: %@", log: .mqtt, type: .error, String(describing: error))
-                handler?(.failure(error))
-            }
-            
         case .unsuback:
-            guard let unsuback = MQTTDecoder.decode(packet, as: UnsubackPacket.self) else { return }
-            
-            var handler: ((Result<Void, UnsubscribeError>) -> Void)?
-            if case .unsubscribeResultHandler(let resultHandler) = handlerStore.removeValueForKey(unsuback.packetId) {
-                handler = resultHandler
+            if let unsuback = MQTTDecoder.decode(packet, as: UnsubackPacket.self) {
+                processUnsuback(unsuback)
             }
-            
-            if let error = unsuback.error {
-                os_log("Unsubscribe error: %@", log: .mqtt, type: .error, String(describing: error))
-                handler?(.failure(error))
-            } else {
-                os_log("Unsubscribe successful", log: .mqtt, type: .info)
-                handler?(.success(()))
-            }
-            
         case .publish:
-            guard let messageHandler = onMessage, let publish = MQTTDecoder.decode(packet, as: PublishPacket.self) else { return }
-            messageHandler(publish.topicName, publish.message)
-            
+            if let publish = MQTTDecoder.decode(packet, as: PublishPacket.self) {
+                processPublish(publish)
+            }
         case .puback:
-            guard let puback = MQTTDecoder.decode(packet, as: PubackPacket.self) else { return }
-            
-            var handler: ((Result<Void, PublishError>) -> Void)?
-            if case .publishResultHandler(let resultHandler) = handlerStore.removeValueForKey(puback.packetId) {
-                handler = resultHandler
+            if let puback = MQTTDecoder.decode(packet, as: PubackPacket.self) {
+                processPuback(puback)
             }
-            
-            if let error = puback.error {
-                os_log("Publish acknowledged with error: %@", log: .mqtt, type: .error, String(describing: error))
-                handler?(.failure(error))
-            } else {
-                os_log("Publish acknowledged", log: .mqtt, type: .info)
-                handler?(.success(()))
-            }
-            
         default:
-            os_log("Received %@", log: .mqtt, type: .debug, String(describing: packet.fixedHeader.controlOptions))
+            os_log("Unhandled packet: %@", log: .mqtt, type: .error, String(describing: packet.fixedHeader.controlOptions))
         }
     }
 

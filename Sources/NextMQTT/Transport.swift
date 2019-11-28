@@ -5,6 +5,7 @@
 //  Created by Ben Stovold on 6/11/19.
 //
 
+import os
 import Foundation
 
 protocol TransportDelegate : AnyObject {
@@ -111,6 +112,7 @@ final class Transport {
     
     func send(packet: EncodablePacket) {
         dispatchPrecondition(condition: .onQueue(queue))
+        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: packet))
         process(event: .send(packet: packet))
     }
     

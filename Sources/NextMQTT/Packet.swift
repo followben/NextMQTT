@@ -24,24 +24,49 @@ fileprivate enum Success: UInt8, MQTTDecodable {
 
 extension MQTT.QoS: MQTTCodable {}
 
+enum PacketType: UInt8 {
+    case connect      = 1
+    case connack      = 2
+    case publish      = 3
+    case puback       = 4
+    case pubrec       = 5
+    case pubrel       = 6
+    case pubcomp      = 7
+    case subscribe    = 8
+    case suback       = 9
+    case unsubscribe  = 10
+    case unsuback     = 11
+    case pingreq      = 12
+    case pingresp     = 13
+    case disconnect   = 14
+}
+
 struct ControlOptions: OptionSet, MQTTCodable {
     let rawValue: UInt8
     
     // 2.1.2 MQTT Control Packet type
-    static let connect      = ControlOptions(rawValue: 1 << 4)
-    static let connack      = ControlOptions(rawValue: 2 << 4)
-    static let publish      = ControlOptions(rawValue: 3 << 4)
-    static let puback       = ControlOptions(rawValue: 4 << 4)
-    static let pubrec       = ControlOptions(rawValue: 5 << 4)
-    static let pubrel       = ControlOptions(rawValue: 6 << 4)
-    static let pubcomp      = ControlOptions(rawValue: 7 << 4)
-    static let subscribe    = ControlOptions(rawValue: 8 << 4)
-    static let suback       = ControlOptions(rawValue: 9 << 4)
-    static let unsubscribe  = ControlOptions(rawValue: 10 << 4)
-    static let unsuback     = ControlOptions(rawValue: 11 << 4)
-    static let pingreq      = ControlOptions(rawValue: 12 << 4)
-    static let pingresp     = ControlOptions(rawValue: 13 << 4)
-    static let disconnect   = ControlOptions(rawValue: 14 << 4)
+    var packetType: PacketType {
+        return PacketType(rawValue: self.rawValue >> 4)!
+    }
+    
+    static func packetType(_ packetType: PacketType) -> Self {
+        ControlOptions(rawValue: packetType.rawValue << 4)
+    }
+    
+    static let connect      = ControlOptions(rawValue: PacketType.connect.rawValue << 4)
+    static let connack      = ControlOptions(rawValue: PacketType.connack.rawValue << 4)
+    static let publish      = ControlOptions(rawValue: PacketType.publish.rawValue << 4)
+    static let puback       = ControlOptions(rawValue: PacketType.puback.rawValue << 4)
+    static let pubrec       = ControlOptions(rawValue: PacketType.pubrec.rawValue << 4)
+    static let pubrel       = ControlOptions(rawValue: PacketType.pubrel.rawValue << 4)
+    static let pubcomp      = ControlOptions(rawValue: PacketType.pubcomp.rawValue << 4)
+    static let subscribe    = ControlOptions(rawValue: PacketType.subscribe.rawValue << 4)
+    static let suback       = ControlOptions(rawValue: PacketType.suback.rawValue << 4)
+    static let unsubscribe  = ControlOptions(rawValue: PacketType.unsubscribe.rawValue << 4)
+    static let unsuback     = ControlOptions(rawValue: PacketType.unsuback.rawValue << 4)
+    static let pingreq      = ControlOptions(rawValue: PacketType.pingreq.rawValue << 4)
+    static let pingresp     = ControlOptions(rawValue: PacketType.pingresp.rawValue << 4)
+    static let disconnect   = ControlOptions(rawValue: PacketType.disconnect.rawValue << 4)
     
     // 2.1.3 Flags specific to each MQTT Control Packet type
     
@@ -267,6 +292,20 @@ struct PublishPacket: CodablePacket {
         self.propertyLength = 0
         self.message = message ?? Data()
     }
+    
+    init(fromMQTTDecoder decoder: MQTTDecoder) throws {
+        var container = try decoder.unkeyedContainer()
+        self.fixedHeader = try container.decode(FixedHeader.self)
+        self.topicName = try container.decode(String.self)
+        let opts = self.fixedHeader.controlOptions
+        if opts.contains(.qos(.leastOnce)) || opts.contains(.qos(.exactlyOnce)) {
+            self.packetId = try container.decode(UInt16.self)
+        } else {
+            self.packetId = nil
+        }
+        self.propertyLength = try container.decode(UInt8.self)
+        self.message = try container.decode(Data.self)
+    }
 }
 
 // MARK: 3.4 PUBACK – Publish acknowledgement
@@ -284,14 +323,12 @@ public extension MQTT {
     }
 }
 
-extension MQTT.PublishError: MQTTDecodable {}
+extension MQTT.PublishError: MQTTCodable {}
 
-struct PubackPacket: DecodablePacket {
+struct PubackPacket: CodablePacket {
     
     let fixedHeader: FixedHeader
     let packetId: UInt16                // 3.4.2 PUBACK Variable Header
-    let propertyLength: UIntVar         // 3.9.2.1.1 Property Length
-    
     let error: MQTT.PublishError?
     
     init(fromMQTTDecoder decoder: MQTTDecoder) throws {
@@ -299,7 +336,13 @@ struct PubackPacket: DecodablePacket {
         self.fixedHeader = try container.decode(FixedHeader.self)
         self.packetId = try container.decode(UInt16.self)
         self.error = (try? container.decode(MQTT.PublishError.self)) ?? nil
-        self.propertyLength = (try? container.decode(UIntVar.self)) ?? 0
+    }
+    
+    init(packetId: UInt16, error: MQTT.PublishError? = nil) throws {
+        let remainingLength: UIntVar = (error == nil) ? 2 : 3
+        self.fixedHeader = FixedHeader(controlOptions: [.puback, .reserved0], remainingLength: remainingLength)
+        self.packetId = packetId
+        self.error = error
     }
 }
 

@@ -277,12 +277,33 @@ final class PacketTests: XCTestCase {
         XCTAssertEqual(publish.message, "Try This".data(using: .utf8))
     }
     
-//    func testPubackEncode() {
-//        let puback = try! PubackPacket(
-//        let expected: [UInt8] = [64, 2, 0, 1]
-//        let actual = try! MQTTEncoder.encode(puback)
-//        XCTAssertEqual(expected, actual)
-//    }
+    func testPublishPacketQoS1Decode() {
+        let fixedHeader: [UInt8] = [50, 16]
+        let topic: [UInt8] = [0, 5, 47, 112, 111, 110, 103] // "/pong" as mqtt string
+        let packetId: [UInt8] = [0, 12]
+        let propertyLength: [UInt8] = [0]
+        let message: [UInt8] = [84, 114, 121, 32, 84, 104, 105, 115] // "Try This" as utf8
+        let bytes: [UInt8] = fixedHeader + topic + packetId + propertyLength + message
+        let publish = try! MQTTDecoder.decode(PublishPacket.self, data: bytes)
+        XCTAssert(publish.fixedHeader.controlOptions.contains(.qos(.leastOnce)))
+        XCTAssertEqual(publish.fixedHeader.remainingLength, 16)
+        XCTAssertEqual(publish.topicName, "/pong")
+        XCTAssertEqual(publish.propertyLength, 0)
+        XCTAssertEqual(publish.message, "Try This".data(using: .utf8))
+    }
+    
+    func testPublishPacketQoS2Decode() {
+        let fixedHeader: [UInt8] = [52, 10]
+        let topic: [UInt8] = [0, 5, 47, 112, 111, 110, 103] // "/pong" as mqtt string
+        let packetId: [UInt8] = [0, 11]
+        let propertyLength: [UInt8] = [0]
+        let bytes: [UInt8] = fixedHeader + topic + packetId + propertyLength
+        let publish = try! MQTTDecoder.decode(PublishPacket.self, data: bytes)
+        XCTAssert(publish.fixedHeader.controlOptions.contains(.qos(.exactlyOnce)))
+        XCTAssertEqual(publish.fixedHeader.remainingLength, 10)
+        XCTAssertEqual(publish.topicName, "/pong")
+        XCTAssertEqual(publish.propertyLength, 0)
+    }
     
     func testSimplePubackDecode() {
         let bytes: [UInt8] = [64, 2, 0, 15]
@@ -292,14 +313,27 @@ final class PacketTests: XCTestCase {
         XCTAssertEqual(puback.packetId, 15)
     }
     
-    func testPubackWithReasonCodeAndNoPropertiesDecode() {
-        let bytes: [UInt8] = [64, 4, 0, 1, 16, 0]
+    func testPubackWithReasonCodeDecode() {
+        let bytes: [UInt8] = [64, 4, 0, 1, 16]
         let puback = try! MQTTDecoder.decode(PubackPacket.self, data: bytes)
         XCTAssertEqual(puback.fixedHeader.controlOptions, [.puback])
         XCTAssertEqual(puback.fixedHeader.remainingLength, 4)
         XCTAssertEqual(puback.packetId, 1)
         XCTAssertEqual(puback.error, .noMatchingSubscribers)
-        XCTAssertEqual(puback.propertyLength, 0)
+    }
+    
+    func testPubackEncode() {
+        let puback = try! PubackPacket(packetId: 1)
+        let expected: [UInt8] = [64, 2, 0, 1]
+        let actual = try! MQTTEncoder.encode(puback)
+        XCTAssertEqual(expected, actual)
+    }
+    
+    func testPubackWithReasonCodeEncode() {
+        let puback = try! PubackPacket(packetId: 12, error: .unspecifiedError)
+        let expected: [UInt8] = [64, 3, 0, 12, 128]
+        let actual = try! MQTTEncoder.encode(puback)
+        XCTAssertEqual(expected, actual)
     }
 }
 
