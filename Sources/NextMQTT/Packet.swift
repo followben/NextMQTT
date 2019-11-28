@@ -269,6 +269,40 @@ struct PublishPacket: CodablePacket {
     }
 }
 
+// MARK: 3.4 PUBACK – Publish acknowledgement
+
+public extension MQTT {
+    enum PublishError: UInt8, Error {
+        case noMatchingSubscribers          = 0x10
+        case unspecifiedError               = 0x80
+        case implementaionSpecificError     = 0x83
+        case notAuthorized                  = 0x87
+        case topicNameInvalid               = 0x90
+        case packetIdInUse                  = 0x91
+        case quotaExceeded                  = 0x97
+        case payloadFormatInvalid           = 0x99
+    }
+}
+
+extension MQTT.PublishError: MQTTDecodable {}
+
+struct PubackPacket: DecodablePacket {
+    
+    let fixedHeader: FixedHeader
+    let packetId: UInt16                // 3.4.2 PUBACK Variable Header
+    let propertyLength: UIntVar         // 3.9.2.1.1 Property Length
+    
+    let error: MQTT.PublishError?
+    
+    init(fromMQTTDecoder decoder: MQTTDecoder) throws {
+        var container = try decoder.unkeyedContainer()
+        self.fixedHeader = try container.decode(FixedHeader.self)
+        self.packetId = try container.decode(UInt16.self)
+        self.error = (try? container.decode(MQTT.PublishError.self)) ?? nil
+        self.propertyLength = (try? container.decode(UIntVar.self)) ?? 0
+    }
+}
+
 // MARK: 3.8 SUBSCRIBE - Subscribe request
 
 public extension MQTT {

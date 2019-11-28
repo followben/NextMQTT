@@ -84,7 +84,8 @@ public final class MQTT {
     private var packetId: UInt16 = 0
     
     private var connAckHandler: ((Result<Void, MQTT.ConnectError>) -> Void)?
-    private var handlerCoordinator = CompletionHandlerCoordinator()
+    private var handlerStore = SynchronizedStore<UInt16, CompletionHandler>(withName: "completion")
+    private var packetStore = SynchronizedStore<UInt16, UnacknowledgedPacket>(withName: "message")
     
     // MARK: Lifecycle
     
@@ -154,9 +155,9 @@ public extension MQTT {
         }
     }
 
-    func publish(to topicName: String, qos: QoS = .mostOnce, message: Data?) {
+    func publish(to topicName: String, qos: QoS = .mostOnce, message: Data?, completion: ((Result<Void, PublishError>) -> Void)? = nil) {
         transportQueue.async {
-            self.sendPublish(topicName, qos:qos, message: message)
+            self.sendPublish(topicName, qos:qos, message: message, completion: completion)
         }
     }
     
@@ -233,7 +234,7 @@ private extension MQTT {
     func sendSubscribe(_ topicFilter: String, options: SubscribeOptions, completion: ((Result<QoS, SubscribeError>) -> Void)? = nil) {
         let sub = try! SubscribePacket(topicFilter: topicFilter, packetId: nextPacketId(), options: options)
         if let handler = completion {
-            handlerCoordinator.store(completionHandler: CompletionHandler.subscribeResultHandler(handler), for: sub.packetId)
+            handlerStore.setValue(CompletionHandler.subscribeResultHandler(handler), forKey: sub.packetId)
         }
         os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: sub))
         transport.send(packet: sub)
@@ -242,17 +243,27 @@ private extension MQTT {
     func sendUnsubscribe(_ topicFilter: String, completion: ((Result<Void, UnsubscribeError>) -> Void)? = nil) {
         let unsub = try! UnsubscribePacket(topicFilter: topicFilter, packetId: nextPacketId())
         if let handler = completion {
-            handlerCoordinator.store(completionHandler: CompletionHandler.unsubscribeResultHandler(handler), for: unsub.packetId)
+            handlerStore.setValue(CompletionHandler.unsubscribeResultHandler(handler), forKey: unsub.packetId)
         }
         os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: unsub))
         transport.send(packet: unsub)
     }
     
-    func sendPublish(_ topicName: String, qos: QoS, message: Data?) {
+    func sendPublish(_ topicName: String, qos: QoS, message: Data?, completion: ((Result<Void, PublishError>) -> Void)? = nil) {
         let packetId = (qos != .mostOnce) ? nextPacketId() : nil
-        let publish = try! PublishPacket(topicName: topicName, qos: qos, packetId: packetId, message: message)
-        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: publish))
-        transport.send(packet: publish)
+        let packet = try! PublishPacket(topicName: topicName, qos: qos, packetId: packetId, message: message)
+        if qos != .mostOnce {
+            let packetId = packet.packetId!
+            packetStore.setValue(.publish(packet), forKey: packetId)
+            if let completion = completion {
+                handlerStore.setValue(.publishResultHandler(completion), forKey: packetId)
+            }
+        }
+        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: packet))
+        transport.send(packet: packet)
+        if qos == .mostOnce {
+            completion?(.success(()))
+        }
     }
     
     func sendDisconnect() {
@@ -311,7 +322,7 @@ extension MQTT: TransportDelegate {
             guard let suback = MQTTDecoder.decode(packet, as: SubackPacket.self) else { return }
             
             var handler: ((Result<QoS, SubscribeError>) -> Void)?
-            if case .subscribeResultHandler(let resultHandler) = handlerCoordinator.retrieveCompletionHandler(for: suback.packetId) {
+            if case .subscribeResultHandler(let resultHandler) = handlerStore.removeValueForKey(suback.packetId) {
                 handler = resultHandler
             }
             
@@ -327,7 +338,7 @@ extension MQTT: TransportDelegate {
             guard let unsuback = MQTTDecoder.decode(packet, as: UnsubackPacket.self) else { return }
             
             var handler: ((Result<Void, UnsubscribeError>) -> Void)?
-            if case .unsubscribeResultHandler(let resultHandler) = handlerCoordinator.retrieveCompletionHandler(for: unsuback.packetId) {
+            if case .unsubscribeResultHandler(let resultHandler) = handlerStore.removeValueForKey(unsuback.packetId) {
                 handler = resultHandler
             }
             
@@ -342,6 +353,22 @@ extension MQTT: TransportDelegate {
         case .publish:
             guard let messageHandler = onMessage, let publish = MQTTDecoder.decode(packet, as: PublishPacket.self) else { return }
             messageHandler(publish.topicName, publish.message)
+            
+        case .puback:
+            guard let puback = MQTTDecoder.decode(packet, as: PubackPacket.self) else { return }
+            
+            var handler: ((Result<Void, PublishError>) -> Void)?
+            if case .publishResultHandler(let resultHandler) = handlerStore.removeValueForKey(puback.packetId) {
+                handler = resultHandler
+            }
+            
+            if let error = puback.error {
+                os_log("Publish acknowledged with error: %@", log: .mqtt, type: .error, String(describing: error))
+                handler?(.failure(error))
+            } else {
+                os_log("Publish acknowledged", log: .mqtt, type: .info)
+                handler?(.success(()))
+            }
             
         default:
             os_log("Received %@", log: .mqtt, type: .debug, String(describing: packet.fixedHeader.controlOptions))
@@ -359,36 +386,48 @@ extension MQTT: TransportDelegate {
     }
 }
 
-// MARK: - Helper classes
+// MARK: - Storage classes
 
 fileprivate extension MQTT {
     enum CompletionHandler {
-        case emptyHandler(() -> Void)
-        case errorHandler((Error?) -> Void)
         case subscribeResultHandler(((Result<QoS, SubscribeError>) -> Void))
         case unsubscribeResultHandler(((Result<Void, UnsubscribeError>) -> Void))
+        case publishResultHandler(((Result<Void, PublishError>) -> Void))
     }
-
-    class CompletionHandlerCoordinator {
-        private var completionHandlers: [UInt16: CompletionHandler] = [:]
-        private let completionHandlerAccessQueue = DispatchQueue(label: "com.simplemqtt.completion", attributes: .concurrent)
-
-        // TODO: add timeout errors for completion handler types?
-        fileprivate func store(completionHandler: CompletionHandler, for packetId: UInt16) {
-            completionHandlerAccessQueue.async(flags:.barrier) {
-                self.completionHandlers[packetId] = completionHandler
+    
+    enum UnacknowledgedPacket {
+        case publish(PublishPacket)
+    }
+    
+    class SynchronizedStore<Key: Hashable, Value> {
+        private var store: [Key: Value] = [:]
+        
+        private let name: String
+        private lazy var queue: DispatchQueue = {
+            DispatchQueue(label: "com.simplemqtt." + name.lowercased(), attributes: .concurrent)
+        }()
+        
+        init(withName name: String) {
+            self.name = name
+        }
+        
+        fileprivate func setValue(_ value: Value, forKey key: Key) {
+            queue.async(flags:.barrier) {
+                self.store[key] = value
+                os_log("Stored with key %@: %@", log: .mqtt, type: .debug, String(describing: key), String(describing: value))
             }
         }
 
-        fileprivate func retrieveCompletionHandler(for packetId: UInt16) -> CompletionHandler? {
-            var handler: CompletionHandler?
-            completionHandlerAccessQueue.sync {
-                handler = self.completionHandlers[packetId]
+        fileprivate func removeValueForKey(_ key: Key) -> Value? {
+            var value: Value?
+            queue.sync {
+                value = self.store[key]
             }
-            completionHandlerAccessQueue.async(flags:.barrier) {
-                self.completionHandlers[packetId] = nil
+            queue.async(flags: .barrier) {
+                self.store[key] = nil
             }
-            return handler
+            os_log("Removing from key %@: %@", log: .mqtt, type: .debug, String(describing: key), String(describing: value))
+            return value
         }
     }
 }
