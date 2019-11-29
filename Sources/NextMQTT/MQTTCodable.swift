@@ -14,6 +14,7 @@ extension Data: MQTTCodable {
     
     init(fromMQTTDecoder decoder: MQTTDecoder) throws {
         let count = decoder.count - decoder.currentIndex
+        guard count > 0 else { throw MQTTDecoder.Error.prematureEndOfData }
         self.init()
         self.reserveCapacity(count)
         for _ in 0 ..< count {

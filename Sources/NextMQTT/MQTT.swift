@@ -189,7 +189,7 @@ public extension MQTT {
         }
     }
 
-    func publish(to topicName: String, qos: QoS = .mostOnce, message: Data?, completion: ((Result<Void, PublishError>) -> Void)? = nil) {
+    func publish(to topicName: String, qos: QoS = .mostOnce, message: Data? = nil, completion: ((Result<Void, PublishError>) -> Void)? = nil) {
         transportQueue.async {
             self.sendPublish(topicName, qos:qos, message: message, completion: completion)
         }

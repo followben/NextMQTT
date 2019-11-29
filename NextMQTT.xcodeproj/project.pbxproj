@@ -21,6 +21,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		9FA75DB92390CF4B0051D744 /* FunctionalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FA75DA92390CDFC0051D744 /* FunctionalTests.swift */; };
+		9FA75DBB2390D0A30051D744 /* IntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FA75DBA2390D0A30051D744 /* IntegrationTests.swift */; };
 		OBJ_30 /* MQTT.swift in Sources */ = {isa = PBXBuildFile; fileRef = OBJ_9 /* MQTT.swift */; };
 		OBJ_31 /* MQTTCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = OBJ_10 /* MQTTCodable.swift */; };
 		OBJ_32 /* MQTTDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = OBJ_11 /* MQTTDecoder.swift */; };
@@ -29,7 +31,7 @@
 		OBJ_35 /* Transport.swift in Sources */ = {isa = PBXBuildFile; fileRef = OBJ_14 /* Transport.swift */; };
 		OBJ_36 /* UIntVar.swift in Sources */ = {isa = PBXBuildFile; fileRef = OBJ_15 /* UIntVar.swift */; };
 		OBJ_43 /* Package.swift in Sources */ = {isa = PBXBuildFile; fileRef = OBJ_6 /* Package.swift */; };
-		OBJ_54 /* NextMQTTTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OBJ_18 /* NextMQTTTests.swift */; };
+		OBJ_54 /* UnitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OBJ_18 /* UnitTests.swift */; };
 		OBJ_55 /* XCTestManifests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OBJ_19 /* XCTestManifests.swift */; };
 		OBJ_57 /* NextMQTT.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = "NextMQTT::NextMQTT::Product" /* NextMQTT.framework */; };
 /* End PBXBuildFile section */
@@ -53,6 +55,8 @@
 
 /* Begin PBXFileReference section */
 		9FA0BFCE23907CCF00E635E0 /* LICENSE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = LICENSE.md; sourceTree = "<group>"; };
+		9FA75DA92390CDFC0051D744 /* FunctionalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FunctionalTests.swift; sourceTree = "<group>"; };
+		9FA75DBA2390D0A30051D744 /* IntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationTests.swift; sourceTree = "<group>"; };
 		"NextMQTT::NextMQTT::Product" /* NextMQTT.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = NextMQTT.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		"NextMQTT::NextMQTTTests::Product" /* NextMQTTTests.xctest */ = {isa = PBXFileReference; lastKnownFileType = file; path = NextMQTTTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		OBJ_10 /* MQTTCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MQTTCodable.swift; sourceTree = "<group>"; };
@@ -61,7 +65,7 @@
 		OBJ_13 /* Packet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Packet.swift; sourceTree = "<group>"; };
 		OBJ_14 /* Transport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transport.swift; sourceTree = "<group>"; };
 		OBJ_15 /* UIntVar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIntVar.swift; sourceTree = "<group>"; };
-		OBJ_18 /* NextMQTTTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NextMQTTTests.swift; sourceTree = "<group>"; };
+		OBJ_18 /* UnitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnitTests.swift; sourceTree = "<group>"; };
 		OBJ_19 /* XCTestManifests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XCTestManifests.swift; sourceTree = "<group>"; };
 		OBJ_24 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		OBJ_6 /* Package.swift */ = {isa = PBXFileReference; explicitFileType = sourcecode.swift; path = Package.swift; sourceTree = "<group>"; };
@@ -90,6 +94,7 @@
 		OBJ_16 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				9FA75DA92390CDFC0051D744 /* FunctionalTests.swift */,
 				OBJ_17 /* NextMQTTTests */,
 			);
 			name = Tests;
@@ -98,7 +103,8 @@
 		OBJ_17 /* NextMQTTTests */ = {
 			isa = PBXGroup;
 			children = (
-				OBJ_18 /* NextMQTTTests.swift */,
+				OBJ_18 /* UnitTests.swift */,
+				9FA75DBA2390D0A30051D744 /* IntegrationTests.swift */,
 				OBJ_19 /* XCTestManifests.swift */,
 			);
 			name = NextMQTTTests;
@@ -255,8 +261,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 0;
 			files = (
-				OBJ_54 /* NextMQTTTests.swift in Sources */,
+				9FA75DBB2390D0A30051D744 /* IntegrationTests.swift in Sources */,
+				OBJ_54 /* UnitTests.swift in Sources */,
 				OBJ_55 /* XCTestManifests.swift in Sources */,
+				9FA75DB92390CF4B0051D744 /* FunctionalTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

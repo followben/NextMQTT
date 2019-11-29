@@ -291,7 +291,7 @@ struct PublishPacket: CodablePacket {
     let topicName: String
     let packetId: UInt16?
     let propertyLength: UInt8
-    let message: Data
+    let message: Data?
     
     init(topicName: String, qos: MQTT.QoS, packetId: UInt16? = nil, message: Data?) throws {
         precondition((qos == .mostOnce && packetId == nil) || (qos != .mostOnce && packetId != nil))
@@ -303,7 +303,7 @@ struct PublishPacket: CodablePacket {
         self.topicName = topicName
         self.packetId = packetId
         self.propertyLength = 0
-        self.message = message ?? Data()
+        self.message = message
     }
     
     init(fromMQTTDecoder decoder: MQTTDecoder) throws {
@@ -317,7 +317,7 @@ struct PublishPacket: CodablePacket {
             self.packetId = nil
         }
         self.propertyLength = try container.decode(UInt8.self)
-        self.message = try container.decode(Data.self)
+        self.message = try? container.decode(Data.self)
     }
 }
 
