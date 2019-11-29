@@ -212,6 +212,7 @@ struct ConnackPacket: DecodablePacket {
     let error: MQTT.ConnectError?
     
     var topicAliasMaximum: Int = 0
+    
 }
 
 extension ConnackPacket: MQTTDecodable {

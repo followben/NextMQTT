@@ -73,19 +73,53 @@ public final class MQTT {
     private let transportQueue = DispatchQueue(label: "com.simplemqtt.transport")
     
     private var _transport: Transport?
-    private var transport: Transport {
-        if let transport = _transport { return transport }
-        let transport = Transport(hostName: host, port: port, useTLS: secureConnection, maxBuffer: maxBuffer, queue: transportQueue)
-        transport.delegate = self
-        _transport = transport
-        return transport
+    private var transport: Transport! {
+        set {
+            assert(newValue == nil)
+            _transport = nil
+        }
+        get {
+            if let transport = _transport { return transport }
+            let transport = Transport(hostName: host, port: port, useTLS: secureConnection, maxBuffer: maxBuffer, queue: transportQueue)
+            transport.delegate = self
+            _transport = transport
+            return transport
+        }
     }
     
     private var packetId: UInt16 = 0
     
     private var connAckHandler: ((Result<Void, MQTT.ConnectError>) -> Void)?
-    private var handlerStore = SynchronizedStore<UInt16, CompletionHandler>(withName: "completion")
-    private var packetStore = SynchronizedStore<UInt16, UnacknowledgedPacket>(withName: "message")
+    
+    private var _handlerStore: SynchronizedStore<UInt16, CompletionHandler>?
+    private var handlerStore: SynchronizedStore<UInt16, CompletionHandler>! {
+        set {
+            assert(newValue == nil)
+            _handlerStore = nil
+        }
+        get {
+            if let store = _handlerStore { return store }
+            _handlerStore = SynchronizedStore<UInt16, CompletionHandler>(withName: "completion")
+            return _handlerStore
+        }
+    }
+    
+    private var _packetStore: SynchronizedStore<UInt16, UnacknowledgedPacket>?
+    private var packetStore: SynchronizedStore<UInt16, UnacknowledgedPacket>! {
+        set {
+            assert(newValue == nil)
+            _packetStore = nil
+        }
+        get {
+            if let store = _packetStore { return store }
+            _packetStore = SynchronizedStore<UInt16, UnacknowledgedPacket>(withName: "message")
+            return _packetStore
+        }
+    }
+    
+    private var hasSession: Bool {
+        return _packetStore != nil
+    }
     
     // MARK: Lifecycle
     
@@ -163,7 +197,7 @@ public extension MQTT {
     
 }
 
-// MARK: - iVar Helpers
+// MARK: - Mutators
 
 private extension MQTT {
     
@@ -173,7 +207,14 @@ private extension MQTT {
     }
     
     func resetTransport() {
-        _transport = nil
+        transport = nil
+    }
+    
+    func resetSession() {
+        guard hasSession else { return }
+        os_log("Resetting session and removing stores", log: .mqtt, type: .debug)
+        packetStore = nil
+        handlerStore = nil
     }
 
 }
@@ -288,6 +329,20 @@ private extension MQTT {
         transport.stop()
         connectionState = .disconnected
     }
+    
+    func resendUnacknowledgedPackets() {
+        os_log("Resending unacked packets", log: .mqtt, type: .info)
+        for unacked in packetStore.values {
+            switch unacked {
+            case .publishSent(let packet):
+                transport.send(packet: packet)
+            case .pubRecSent(let packet):
+                transport.send(packet: packet)
+            default:
+                break
+            }
+        }
+    }
 }
 
 // MARK: - Receiving
@@ -306,18 +361,26 @@ private extension MQTTDecoder {
 private extension MQTT {
     
     func processConnack(_ connack: ConnackPacket) {
+        
         if connack.flags.contains(.sessionPresent) {
-            // TODO: handle exception conditions for Session Present in CONNACK
+            if hasSession {
+                resendUnacknowledgedPackets()
+            } else {
+                connAckHandler?(.failure(.protocolError)) // TODO: this should be a specific error as per [MQTT-3.2.2-4]
+                transport.stop()
+                connectionState = .disconnected
+                resetTransport()
+            }
+        } else {
+            resetSession()
         }
         
-        if let onConnack = connAckHandler {
-            if let error = connack.error {
-                onConnack(.failure(error))
-            } else {
-                onConnack(.success(()))
-            }
-            connAckHandler = nil
+        if let error = connack.error {
+            connAckHandler?(.failure(error))
+        } else {
+            connAckHandler?(.success(()))
         }
+        connAckHandler = nil
     }
     
     func processSuback(_ suback: SubackPacket) {
@@ -507,11 +570,15 @@ fileprivate extension MQTT {
             DispatchQueue(label: "com.simplemqtt." + name.lowercased(), attributes: .concurrent)
         }()
         
+        var values: [Value] {
+            return store.values.compactMap { $0 }
+        }
+        
         init(withName name: String) {
             self.name = name
         }
         
-        fileprivate func setValue(_ value: Value, forKey key: Key) {
+        func setValue(_ value: Value, forKey key: Key) {
             queue.async(flags:.barrier) {
                 self.store[key] = value
                 os_log("Stored with key %@: %@", log: .mqtt, type: .debug, String(describing: key), String(describing: value))
@@ -519,13 +586,14 @@ fileprivate extension MQTT {
         }
 
         @discardableResult
-        fileprivate func removeValueForKey(_ key: Key) -> Value? {
+        func removeValueForKey(_ key: Key) -> Value? {
             var value: Value?
             queue.sync {
                 value = self.store[key]
             }
             queue.async(flags: .barrier) {
                 self.store[key] = nil
+                
             }
             os_log("Removing from key %@: %@", log: .mqtt, type: .debug, String(describing: key), String(describing: value))
             return value
