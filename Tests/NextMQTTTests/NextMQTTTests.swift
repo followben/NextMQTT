@@ -338,7 +338,8 @@ final class PacketTests: XCTestCase {
     
     func testPubrecDecode() {
         let bytes: [UInt8] = [80, 2, 0, 15]
-        let pubrec = try! MQTTDecoder.decode(PubrecPacket.self, data: bytes)
+        let decoder = MQTTDecoder(data: bytes)
+        let pubrec = try! decoder.decode(PubrecPacket.self)
         XCTAssertEqual(pubrec.fixedHeader.controlOptions.packetType, .pubrec)
         XCTAssertEqual(pubrec.fixedHeader.remainingLength, 2)
         XCTAssertEqual(pubrec.packetId, 15)
@@ -483,8 +484,11 @@ final class TransportTests: XCTestCase, TransportDelegate {
         let connectPacket = try! ConnectPacket(clientId: "A")
         let connectBytes = try! MQTTEncoder.encode(connectPacket)
         
-        let connackBytes: [UInt8] = [32, 6, 0, 0, 3, 34, 0, 10]
-        testServer.data = connackBytes
+        // 3 packets: connack + pubrec + pubrel
+        // 2nd and 3rd packet have 2 extra valid but unprocessed bytes to ensure packet boundary is
+        // respected by the transport's decoder
+        let bytes: [UInt8] = [32, 6, 0, 0, 3, 34, 0, 10] + [80, 4, 0, 15, 0, 0] + [98, 4, 0, 15, 0, 0]
+        testServer.data = bytes
 
         transport.delegate = self
         transport.start()
@@ -496,6 +500,7 @@ final class TransportTests: XCTestCase, TransportDelegate {
         XCTAssert(didStartCalled)
         XCTAssertEqual(testServer.bytesReceived, connectBytes)
         XCTAssertEqual(packetsReceived.first?.fixedHeader.controlOptions.packetType, .connack)
+        XCTAssertEqual(packetsReceived.count, 3)
         XCTAssert(!didStopCalled) // should not call didStop if stop() invoked
     }
     

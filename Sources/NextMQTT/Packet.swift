@@ -88,8 +88,19 @@ protocol CodablePacket: EncodablePacket, DecodablePacket {}
 
 // MARK: Generic Decodable MQTT Packet
 
+/**
+ A type for decoding a generic MQTT packet.
+ 
+ Decodes only the fixed header, marshalling _all_ bytes for the packet (including fixed and
+ variable headers and any payload) into the `bytes` property.
+ 
+ Used to decode the inbound bytestream from an MQTT server to correctly separate packets and
+ determine their type (from the fixed header) for further processing.
+*/
 struct MQTTPacket: DecodablePacket {
     let fixedHeader: FixedHeader
+    
+    /// All of the contiguous bytes for the packet, incl. the fixed header.
     let bytes: [UInt8]
     
     init(fromMQTTDecoder decoder: MQTTDecoder) throws {
