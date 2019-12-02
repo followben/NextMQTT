@@ -146,17 +146,20 @@ struct ConnectPacket: EncodablePacket {
     // Variable header
     let mqttName: String = MQTT.ProtocolName          // section 3.1.2.1 Protocol Name
     let mqttVersion: UInt8 = MQTT.ProtocolVersion     // section 3.1.2.2 Protocol Version
-    let connectFlags: ConnectFlags  // TODO: section 3.1.2.3 Connect Flags
+    let connectFlags: ConnectFlags  // section 3.1.2.3 Connect Flags
     let keepAlive: UInt16           // section 3.1.2.10 Keep Alive
-    let propLength: UInt8 = 0       // TODO: section 3.1.2.11 CONNECT Properties
+    let propLength: UInt8           // section 3.1.2.11 CONNECT Properties
+    let sessionExpiryFlag: UInt8?
+    let sessionExpiryInterval: UInt32?
     
     // Payload
     let clientId: String
     let username: String?
     let password: String?
     
-    init(clientId: String, username: String? = nil, password: String? = nil, keepAlive: UInt16 = 10, cleanStart: Bool = false) throws {
-        let variableHeaderLength = MQTT.ProtocolName.byteCount + 1 + 1 + 2 + 1
+    init(clientId: String, username: String? = nil, password: String? = nil, keepAlive: UInt16 = 10, cleanStart: Bool = false, sessionExpiry: UInt32 = 0) throws {
+        let propLength: UInt8 = (sessionExpiry > 0) ? 5 : 0
+        let variableHeaderLength = MQTT.ProtocolName.byteCount + 1 + 1 + 2 + 1 + UInt(propLength)
         let payloadlength = clientId.byteCount + (username?.byteCount ?? 0) + (password?.byteCount ?? 0)
         let remainingLength = try UIntVar(payloadlength + variableHeaderLength)
         self.fixedHeader = FixedHeader(controlOptions: [.packetType(.connect), .reserved0], remainingLength: remainingLength)
@@ -175,7 +178,14 @@ struct ConnectPacket: EncodablePacket {
         }
         self.connectFlags = connectFlags
         self.keepAlive = keepAlive
-
+        self.propLength = propLength
+        if sessionExpiry > 0 {
+            self.sessionExpiryFlag = 0x11
+            self.sessionExpiryInterval = 120
+        } else {
+            self.sessionExpiryFlag = nil
+            self.sessionExpiryInterval = nil
+        }
     }
 }
 

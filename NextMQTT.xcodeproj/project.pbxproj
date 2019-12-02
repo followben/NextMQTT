@@ -145,11 +145,11 @@
 			children = (
 				OBJ_9 /* MQTT.swift */,
 				OBJ_10 /* MQTTCodable.swift */,
-				OBJ_11 /* MQTTDecoder.swift */,
 				OBJ_12 /* MQTTEncoder.swift */,
+				OBJ_11 /* MQTTDecoder.swift */,
 				OBJ_13 /* Packet.swift */,
-				OBJ_14 /* Transport.swift */,
 				OBJ_15 /* UIntVar.swift */,
+				OBJ_14 /* Transport.swift */,
 			);
 			name = NextMQTT;
 			path = Sources/NextMQTT;

@@ -15,7 +15,7 @@ internal extension OSLog {
 public final class MQTT {
     
     public enum OptionsKey {
-        case pingInterval, secureConnection, clientId, maxBuffer, cleanStart
+        case pingInterval, secureConnection, clientId, maxBuffer, cleanStart, sessionExpiry
     }
     
     public var onMessage: ((String, Data?) -> Void)?
@@ -58,7 +58,8 @@ public final class MQTT {
         return clientId
     }
     private var pingInterval: UInt16 {
-        options[.pingInterval] as? UInt16 ?? 20
+        let interval = options[.pingInterval] as? Int
+        return UInt16(interval ?? 20)
     }
     private var maxBuffer: Int {
         options[.maxBuffer] as? Int ?? 4096
@@ -68,6 +69,10 @@ public final class MQTT {
     }
     private var cleanStart: Bool {
         options[.cleanStart] as? Bool ?? false
+    }
+    private var sessionExpiry: UInt32 {
+        let interval = options[.sessionExpiry] as? Int
+        return UInt32(interval ?? 0)
     }
     
     private let transportQueue = DispatchQueue(label: "com.simplemqtt.transport")
@@ -89,7 +94,7 @@ public final class MQTT {
     
     private var packetId: UInt16 = 0
     
-    private var connAckHandler: ((Result<Void, MQTT.ConnectError>) -> Void)?
+    private var connAckHandler: ((Result<Bool, MQTT.ConnectError>) -> Void)?
     
     private var _handlerStore: SynchronizedStore<UInt16, CompletionHandler>?
     private var handlerStore: SynchronizedStore<UInt16, CompletionHandler>! {
@@ -117,9 +122,7 @@ public final class MQTT {
         }
     }
     
-    private var hasSession: Bool {
-        return _packetStore != nil
-    }
+    private var hasSession: Bool = false
     
     // MARK: Lifecycle
     
@@ -151,12 +154,12 @@ public extension MQTT {
         self.init(host: host, port: port, username: username, password: password, optionsDict: options)
     }
     
-    func connect(completion: ((Result<Void, MQTT.ConnectError>) -> Void)? = nil) {
+    func connect(completion: ((Result<Bool, MQTT.ConnectError>) -> Void)? = nil) {
         connectionState = .connecting
         connAckHandler = { [weak self] result in
             guard let self = self else { return }
             switch result {
-            case .success():
+            case .success(_):
                 self.connectionState = .connected
                 self.keepAlive()
             case .failure(let error):
@@ -211,10 +214,12 @@ private extension MQTT {
     }
     
     func resetSession() {
-        guard hasSession else { return }
-        os_log("Resetting session and removing stores", log: .mqtt, type: .debug)
-        packetStore = nil
-        handlerStore = nil
+        if hasSession {
+            os_log("Resetting session and removing stores", log: .mqtt, type: .debug)
+            packetStore = nil
+            handlerStore = nil
+        }
+        hasSession = (!cleanStart && sessionExpiry > 0)
     }
 
 }
@@ -239,7 +244,7 @@ private extension MQTT {
             connAckHandler = { [weak self] result in
                 guard let self = self else { return }
                 switch result {
-                case .success():
+                case .success(_):
                     self.connectionState = .connected
                     self.keepAlive()
                 case .failure(let error):
@@ -261,7 +266,7 @@ private extension MQTT {
     }
     
     func sendConnect() {
-        let conn = try! ConnectPacket(clientId: clientId, username: username, password: password, keepAlive: pingInterval, cleanStart: cleanStart)
+        let conn = try! ConnectPacket(clientId: clientId, username: username, password: password, keepAlive: pingInterval, cleanStart: cleanStart, sessionExpiry: sessionExpiry)
         transport.send(packet: conn)
     }
 
@@ -378,7 +383,7 @@ private extension MQTT {
         if let error = connack.error {
             connAckHandler?(.failure(error))
         } else {
-            connAckHandler?(.success(()))
+            connAckHandler?(.success(connack.flags.contains(.sessionPresent)))
         }
         connAckHandler = nil
     }
