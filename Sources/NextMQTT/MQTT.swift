@@ -122,8 +122,6 @@ public final class MQTT {
         }
     }
     
-    private var hasSession: Bool = false
-    
     // MARK: Lifecycle
     
     deinit {
@@ -214,12 +212,9 @@ private extension MQTT {
     }
     
     func resetSession() {
-        if hasSession {
-            os_log("Resetting session and removing stores", log: .mqtt, type: .debug)
-            packetStore = nil
-            handlerStore = nil
-        }
-        hasSession = (!cleanStart && sessionExpiry > 0)
+        os_log("Resetting session and removing stores", log: .mqtt, type: .debug)
+        packetStore = nil
+        handlerStore = nil
     }
 
 }
@@ -368,7 +363,7 @@ private extension MQTT {
     func processConnack(_ connack: ConnackPacket) {
         
         if connack.flags.contains(.sessionPresent) {
-            if hasSession {
+            if !cleanStart && sessionExpiry > 0 {
                 resendUnacknowledgedPackets()
             } else {
                 connAckHandler?(.failure(.protocolError)) // TODO: this should be a specific error as per [MQTT-3.2.2-4]
