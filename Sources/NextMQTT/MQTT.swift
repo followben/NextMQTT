@@ -234,6 +234,7 @@ private extension MQTT {
     
     func reconnect() {
         assert(connectionState == .dropped || connectionState == .reconnecting)
+        os_log("Reconnecting...", log: .mqtt, type: .info)
         if connectionState == .dropped {
             connectionState = .reconnecting
             connAckHandler = { [weak self] result in
@@ -252,7 +253,7 @@ private extension MQTT {
         transportQueue.asyncAfter(deadline: deadline) { [weak self] in
             guard let self = self else { return }
             if self.connectionState == .dropped || self.connectionState == .reconnecting {
-                os_log("Reconnect Timed Out. Trying again...", log: .mqtt, type: .info)
+                os_log("Reconnect timed out. Trying again...", log: .mqtt, type: .info)
                 self.reconnect()
             }
         }
@@ -336,7 +337,7 @@ private extension MQTT {
             switch unacked {
             case .publishSent(let packet):
                 transport.send(packet: packet)
-            case .pubRecSent(let packet):
+            case .pubRelSent(let packet):
                 transport.send(packet: packet)
             default:
                 break
@@ -454,8 +455,8 @@ private extension MQTT {
             handler?(.failure(error))
         } else {
             os_log("Received pubrec for packetId %@", log: .mqtt, type: .debug, String(describing: pubrec.packetId))
-            packetStore.setValue(.pubRecSent(pubrec), forKey: pubrec.packetId)
             sendPubrel(packetId: pubrec.packetId)
+            packetStore.setValue(.pubRelSent(pubrec), forKey: pubrec.packetId)
         }
     }
     
@@ -465,14 +466,14 @@ private extension MQTT {
             os_log("Received pubrel for packetId %@", log: .mqtt, type: .debug, String(describing: packetId))
             onMessage?(publish.topicName, publish.message)
         } else {
-            os_log("Received pubrel for unknown packetId %@", log: .mqtt, type: .error, String(describing: packetId))
+            os_log("Received pubrel for unknown packetId %@", log: .mqtt, type: .info, String(describing: packetId))
         }
         sendPubcomp(packetId: packetId)
     }
     
     func processPubcomp(_ pubcomp: PubcompPacket) {
-        let pubrec = packetStore.removeValueForKey(pubcomp.packetId)
-        assert(pubrec != nil)
+        let pubrel = packetStore.removeValueForKey(pubcomp.packetId)
+        assert(pubrel != nil)
         var handler: ((Result<Void, PublishError>) -> Void)?
         if case .publishResultHandler(let resultHandler) = handlerStore.removeValueForKey(pubcomp.packetId) {
             handler = resultHandler
@@ -537,13 +538,10 @@ extension MQTT: TransportDelegate {
     }
 
     func didStop(transport: Transport, error: Transport.Error?) {
-        if error == nil {
-            connectionState = .dropped
-            resetTransport()
-            reconnect()
-        } else {
-            os_log("TODO: handle transport error", log: .mqtt, type: .error)
-        }
+        os_log("Dropped connection %@", log: .mqtt, type: .error, String(describing: error))
+        connectionState = .dropped
+        resetTransport()
+        reconnect()
     }
 }
 
@@ -558,7 +556,7 @@ fileprivate extension MQTT {
     
     enum UnacknowledgedPacket {
         case publishSent(PublishPacket)
-        case pubRecSent(PubrecPacket)
+        case pubRelSent(PubrecPacket)
         case publishReceived(PublishPacket)
     }
     
