@@ -1,8 +1,8 @@
 //
-//  Packet.swift
-//  NextMQTT iOS
+//  NextMQTT
 //
-//  Created by Ben Stovold on 4/11/19.
+//  Copyright (c) Ben Stovold 2019
+//  MIT license, see LICENSE file for details
 //
 
 import Foundation
@@ -24,24 +24,34 @@ fileprivate enum Success: UInt8, MQTTDecodable {
 
 extension MQTT.QoS: MQTTCodable {}
 
+enum PacketType: UInt8 {
+    case connect      = 1
+    case connack      = 2
+    case publish      = 3
+    case puback       = 4
+    case pubrec       = 5
+    case pubrel       = 6
+    case pubcomp      = 7
+    case subscribe    = 8
+    case suback       = 9
+    case unsubscribe  = 10
+    case unsuback     = 11
+    case pingreq      = 12
+    case pingresp     = 13
+    case disconnect   = 14
+}
+
 struct ControlOptions: OptionSet, MQTTCodable {
     let rawValue: UInt8
     
     // 2.1.2 MQTT Control Packet type
-    static let connect      = ControlOptions(rawValue: 1 << 4)
-    static let connack      = ControlOptions(rawValue: 2 << 4)
-    static let publish      = ControlOptions(rawValue: 3 << 4)
-    static let puback       = ControlOptions(rawValue: 4 << 4)
-    static let pubrec       = ControlOptions(rawValue: 5 << 4)
-    static let pubrel       = ControlOptions(rawValue: 6 << 4)
-    static let pubcomp      = ControlOptions(rawValue: 7 << 4)
-    static let subscribe    = ControlOptions(rawValue: 8 << 4)
-    static let suback       = ControlOptions(rawValue: 9 << 4)
-    static let unsubscribe  = ControlOptions(rawValue: 10 << 4)
-    static let unsuback     = ControlOptions(rawValue: 11 << 4)
-    static let pingreq      = ControlOptions(rawValue: 12 << 4)
-    static let pingresp     = ControlOptions(rawValue: 13 << 4)
-    static let disconnect   = ControlOptions(rawValue: 14 << 4)
+    var packetType: PacketType {
+        return PacketType(rawValue: self.rawValue >> 4)!
+    }
+    
+    static func packetType(_ packetType: PacketType) -> Self {
+        ControlOptions(rawValue: packetType.rawValue << 4)
+    }
     
     // 2.1.3 Flags specific to each MQTT Control Packet type
     
@@ -53,9 +63,9 @@ struct ControlOptions: OptionSet, MQTTCodable {
     
     // PUBLISH
     static let retain       = ControlOptions(rawValue: 1 << 0)
-    static let qos0         = ControlOptions(rawValue: MQTT.QoS.qos0.rawValue << 1)
-    static let qos1         = ControlOptions(rawValue: MQTT.QoS.qos1.rawValue << 1)
-    static let qos2         = ControlOptions(rawValue: MQTT.QoS.qos2.rawValue << 1)
+    static func qos(_ qos: MQTT.QoS) -> Self {
+        ControlOptions(rawValue: qos.rawValue << 1)
+    }
     static let dup          = ControlOptions(rawValue: 1 << 2)
 }
 
@@ -78,8 +88,19 @@ protocol CodablePacket: EncodablePacket, DecodablePacket {}
 
 // MARK: Generic Decodable MQTT Packet
 
+/**
+ A type for decoding a generic MQTT packet.
+ 
+ Decodes only the fixed header, marshalling _all_ bytes for the packet (including fixed and
+ variable headers and any payload) into the `bytes` property.
+ 
+ Used to decode the inbound bytestream from an MQTT server to correctly separate packets and
+ determine their type (from the fixed header) for further processing.
+*/
 struct MQTTPacket: DecodablePacket {
     let fixedHeader: FixedHeader
+    
+    /// All of the contiguous bytes for the packet, incl. the fixed header.
     let bytes: [UInt8]
     
     init(fromMQTTDecoder decoder: MQTTDecoder) throws {
@@ -125,24 +146,30 @@ struct ConnectPacket: EncodablePacket {
     // Variable header
     let mqttName: String = MQTT.ProtocolName          // section 3.1.2.1 Protocol Name
     let mqttVersion: UInt8 = MQTT.ProtocolVersion     // section 3.1.2.2 Protocol Version
-    let connectFlags: ConnectFlags  // TODO: section 3.1.2.3 Connect Flags
+    let connectFlags: ConnectFlags  // section 3.1.2.3 Connect Flags
     let keepAlive: UInt16           // section 3.1.2.10 Keep Alive
-    let propLength: UInt8 = 0       // TODO: section 3.1.2.11 CONNECT Properties
+    let propLength: UInt8           // section 3.1.2.11 CONNECT Properties
+    let sessionExpiryFlag: UInt8?
+    let sessionExpiryInterval: UInt32?
     
     // Payload
     let clientId: String
     let username: String?
     let password: String?
     
-    public init(clientId: String, username: String? = nil, password: String? = nil, keepAlive: UInt16 = 10) throws {
-        let variableHeaderLength = MQTT.ProtocolName.byteCount + 1 + 1 + 2 + 1
+    init(clientId: String, username: String? = nil, password: String? = nil, keepAlive: UInt16 = 10, cleanStart: Bool = false, sessionExpiry: UInt32 = 0) throws {
+        let propLength: UInt8 = (sessionExpiry > 0) ? 5 : 0
+        let variableHeaderLength = MQTT.ProtocolName.byteCount + 1 + 1 + 2 + 1 + UInt(propLength)
         let payloadlength = clientId.byteCount + (username?.byteCount ?? 0) + (password?.byteCount ?? 0)
         let remainingLength = try UIntVar(payloadlength + variableHeaderLength)
-        self.fixedHeader = FixedHeader(controlOptions: [.connect, .reserved0], remainingLength: remainingLength)
+        self.fixedHeader = FixedHeader(controlOptions: [.packetType(.connect), .reserved0], remainingLength: remainingLength)
         self.clientId = clientId
         self.username = username
         self.password = password
-        var connectFlags: ConnectFlags = []     // TODO: section 3.1.2.4 Clean Start Flag
+        var connectFlags: ConnectFlags = []
+        if cleanStart {
+            connectFlags.insert(.cleanStart)     // section 3.1.2.4 Clean Start Flag
+        }
         if username != nil {
             connectFlags.insert(.username)      // section 3.1.2.8 User Name Flag
         }
@@ -151,7 +178,14 @@ struct ConnectPacket: EncodablePacket {
         }
         self.connectFlags = connectFlags
         self.keepAlive = keepAlive
-
+        self.propLength = propLength
+        if sessionExpiry > 0 {
+            self.sessionExpiryFlag = 0x11
+            self.sessionExpiryInterval = 120
+        } else {
+            self.sessionExpiryFlag = nil
+            self.sessionExpiryInterval = nil
+        }
     }
 }
 
@@ -199,6 +233,7 @@ struct ConnackPacket: DecodablePacket {
     let error: MQTT.ConnectError?
     
     var topicAliasMaximum: Int = 0
+    
 }
 
 extension ConnackPacket: MQTTDecodable {
@@ -239,6 +274,22 @@ extension ConnackPacket: MQTTDecodable {
 
 // MARK: 3.3 PUBLISH – Publish message
 
+public extension MQTT {
+    enum PublishError: UInt8, Error {
+        case noMatchingSubscribers          = 0x10
+        case unspecifiedError               = 0x80
+        case implementaionSpecificError     = 0x83
+        case notAuthorized                  = 0x87
+        case topicNameInvalid               = 0x90
+        case packetIdInUse                  = 0x91
+        case packetIdNotFound               = 0x92
+        case quotaExceeded                  = 0x97
+        case payloadFormatInvalid           = 0x99
+    }
+}
+
+extension MQTT.PublishError: MQTTCodable {}
+
 struct PublishPacket: CodablePacket {
     
     enum Error: Swift.Error {
@@ -248,36 +299,155 @@ struct PublishPacket: CodablePacket {
     let fixedHeader: FixedHeader
     
     let topicName: String
+    let packetId: UInt16?
     let propertyLength: UInt8
-    let message: Data
+    let message: Data?
     
-    public init(topicName: String, message: Data?) throws {
-        let variableHeaderLength = topicName.byteCount + 2 + 1 // topic + packetId + propertyLength
+    init(topicName: String, qos: MQTT.QoS, packetId: UInt16? = nil, message: Data?) throws {
+        precondition((qos == .mostOnce && packetId == nil) || (qos != .mostOnce && packetId != nil))
+        let packetIdLength: UInt = (packetId != nil) ? 2 : 0
+        let variableHeaderLength = topicName.byteCount + packetIdLength + 1 // topic + packetId + propertyLength
         let payloadLength = UInt(message?.count ?? 0)
         let remainingLength = try UIntVar(variableHeaderLength + payloadLength)
-        self.fixedHeader = FixedHeader(controlOptions: [.publish], remainingLength: remainingLength)
+        self.fixedHeader = FixedHeader(controlOptions: [.packetType(.publish), .qos(qos)], remainingLength: remainingLength)
         self.topicName = topicName
+        self.packetId = packetId
         self.propertyLength = 0
-        self.message = message!
+        self.message = message
+    }
+    
+    init(fromMQTTDecoder decoder: MQTTDecoder) throws {
+        var container = try decoder.unkeyedContainer()
+        self.fixedHeader = try container.decode(FixedHeader.self)
+        self.topicName = try container.decode(String.self)
+        let opts = self.fixedHeader.controlOptions
+        if opts.contains(.qos(.leastOnce)) || opts.contains(.qos(.exactlyOnce)) {
+            self.packetId = try container.decode(UInt16.self)
+        } else {
+            self.packetId = nil
+        }
+        self.propertyLength = try container.decode(UInt8.self)
+        self.message = try? container.decode(Data.self)
+    }
+}
+
+// MARK: 3.4 PUBACK – Publish acknowledgement
+
+struct PubackPacket: CodablePacket {
+    
+    let fixedHeader: FixedHeader
+    let packetId: UInt16                // 3.4.2 PUBACK Variable Header
+    let error: MQTT.PublishError?
+    
+    init(fromMQTTDecoder decoder: MQTTDecoder) throws {
+        var container = try decoder.unkeyedContainer()
+        self.fixedHeader = try container.decode(FixedHeader.self)
+        self.packetId = try container.decode(UInt16.self)
+        self.error = (try? container.decode(MQTT.PublishError.self)) ?? nil
+    }
+    
+    init(packetId: UInt16, error: MQTT.PublishError? = nil) {
+        let remainingLength: UIntVar = (error == nil) ? 2 : 3
+        self.fixedHeader = FixedHeader(controlOptions: [.packetType(.puback), .reserved0], remainingLength: remainingLength)
+        self.packetId = packetId
+        self.error = error
+    }
+}
+
+// MARK: 3.5 PUBREC – Publish received (QoS 2 delivery part 1)
+
+struct PubrecPacket: CodablePacket {
+    
+    let fixedHeader: FixedHeader
+    let packetId: UInt16                // 3.5.2 PUBREC Variable Header
+    let error: MQTT.PublishError?
+    
+    init(fromMQTTDecoder decoder: MQTTDecoder) throws {
+        var container = try decoder.unkeyedContainer()
+        self.fixedHeader = try container.decode(FixedHeader.self)
+        self.packetId = try container.decode(UInt16.self)
+        self.error = (try? container.decode(MQTT.PublishError.self)) ?? nil
+    }
+    
+    init(packetId: UInt16, error: MQTT.PublishError? = nil) {
+        let remainingLength: UIntVar = (error == nil) ? 2 : 3
+        self.fixedHeader = FixedHeader(controlOptions: [.packetType(.pubrec), .reserved0], remainingLength: remainingLength)
+        self.packetId = packetId
+        self.error = error
+    }
+}
+
+// MARK: 3.6 PUBREL – Publish release (QoS 2 delivery part 2)
+
+struct PubrelPacket: CodablePacket {
+    
+    let fixedHeader: FixedHeader
+    let packetId: UInt16                // 3.6.2 PUBREL Variable Header
+    let error: MQTT.PublishError?
+    
+    init(fromMQTTDecoder decoder: MQTTDecoder) throws {
+        var container = try decoder.unkeyedContainer()
+        self.fixedHeader = try container.decode(FixedHeader.self)
+        self.packetId = try container.decode(UInt16.self)
+        self.error = (try? container.decode(MQTT.PublishError.self)) ?? nil
+    }
+    
+    init(packetId: UInt16, error: MQTT.PublishError? = nil) {
+        precondition(error == nil || error == .packetIdNotFound, "Invalid PUBREL error, expected 0x92 PacketId Not Found")
+        let remainingLength: UIntVar = (error == nil) ? 2 : 3
+        self.fixedHeader = FixedHeader(controlOptions: [.packetType(.pubrel), .reserved1], remainingLength: remainingLength)
+        self.packetId = packetId
+        self.error = error
+    }
+}
+
+// MARK: 3.7 PUBCOMP – Publish complete (QoS 2 delivery part 3)
+
+struct PubcompPacket: CodablePacket {
+    
+    let fixedHeader: FixedHeader
+    let packetId: UInt16                // 3.7.2 PUBCOMP Variable Header
+    let error: MQTT.PublishError?
+    
+    init(fromMQTTDecoder decoder: MQTTDecoder) throws {
+        var container = try decoder.unkeyedContainer()
+        self.fixedHeader = try container.decode(FixedHeader.self)
+        self.packetId = try container.decode(UInt16.self)
+        self.error = (try? container.decode(MQTT.PublishError.self)) ?? nil
+    }
+    
+    init(packetId: UInt16, error: MQTT.PublishError? = nil) {
+        precondition(error == nil || error == .packetIdNotFound, "Invalid PUBCOMP error, expected 0x92 PacketId Not Found")
+        let remainingLength: UIntVar = (error == nil) ? 2 : 3
+        self.fixedHeader = FixedHeader(controlOptions: [.packetType(.pubcomp), .reserved0], remainingLength: remainingLength)
+        self.packetId = packetId
+        self.error = error
     }
 }
 
 // MARK: 3.8 SUBSCRIBE - Subscribe request
 
-struct SubscribeOptions: OptionSet, MQTTEncodable {     // 3.8.3.1 Subscription Options
-    let rawValue: UInt8
-
-    static let qos0                         = SubscribeOptions(rawValue: MQTT.QoS.qos0.rawValue)
-    static let qos1                         = SubscribeOptions(rawValue: MQTT.QoS.qos1.rawValue)
-    static let qos2                         = SubscribeOptions(rawValue: MQTT.QoS.qos2.rawValue)
+public extension MQTT {
     
-    static let noLocal                      = SubscribeOptions(rawValue: 1 << 2)
-    
-    static let retainAsPublished            = SubscribeOptions(rawValue: 1 << 3)
-    
-    static let retainSendOnSubscribe        = SubscribeOptions(rawValue: 0 << 4)
-    static let retainSendIfNewSubscription  = SubscribeOptions(rawValue: 1 << 4)
-    static let retainDoNotSend              = SubscribeOptions(rawValue: 2 << 4)
+    struct SubscribeOptions: OptionSet, MQTTEncodable {     // 3.8.3.1 Subscription Options
+        public let rawValue: UInt8
+        
+        public init(rawValue: UInt8) {
+            self.rawValue = rawValue
+        }
+        
+        public static func qos(_ qos: MQTT.QoS) -> Self {
+            SubscribeOptions(rawValue: qos.rawValue)
+        }
+        
+        public static let noLocal                      = SubscribeOptions(rawValue: 1 << 2)
+        
+        public static let retainAsPublished            = SubscribeOptions(rawValue: 1 << 3)
+        
+        public static let retainSendOnSubscribe        = SubscribeOptions(rawValue: 0 << 4)
+        public static let retainSendIfNewSubscription  = SubscribeOptions(rawValue: 1 << 4)
+        public static let retainDoNotSend              = SubscribeOptions(rawValue: 2 << 4)
+    }
 }
 
 struct SubscribePacket: EncodablePacket {
@@ -290,14 +460,14 @@ struct SubscribePacket: EncodablePacket {
 
     // Payload
     let topicFilter: String
-    let options: SubscribeOptions
+    let options: MQTT.SubscribeOptions
 
-    public init(topicFilter: String, packetId: UInt16, options: SubscribeOptions = [.qos0, .retainSendOnSubscribe]) throws {
+    init(topicFilter: String, packetId: UInt16, options: MQTT.SubscribeOptions) throws {
         let variableHeaderLength: UInt = 2 + 1 + 0 + 0 + 0 // 2 byte packetIdentifier + property length value + subscriptionID byte + subscription ID byte count + user property byte count
         let payloadlength = topicFilter.byteCount + 1 // byte count of the topic + byte count of the options for that topic
         let remainingLength = try UIntVar(payloadlength + variableHeaderLength)
 
-        self.fixedHeader = FixedHeader(controlOptions: [.subscribe, .reserved1], remainingLength: remainingLength)
+        self.fixedHeader = FixedHeader(controlOptions: [.packetType(.subscribe), .reserved1], remainingLength: remainingLength)
         self.packetId = packetId
         self.topicFilter = topicFilter
         self.options = options
@@ -373,7 +543,7 @@ struct UnsubscribePacket: EncodablePacket {
         let payloadlength = topicFilter.byteCount
         let remainingLength = try UIntVar(payloadlength + variableHeaderLength)
 
-        self.fixedHeader = FixedHeader(controlOptions: [.unsubscribe, .reserved1], remainingLength: remainingLength)
+        self.fixedHeader = FixedHeader(controlOptions: [.packetType(.unsubscribe), .reserved1], remainingLength: remainingLength)
         self.packetId = packetId
         self.topicFilter = topicFilter
     }
@@ -427,11 +597,11 @@ struct UnsubackPacket: DecodablePacket {
 // MARK: 3.12 PINGREQ – PING request
 
 struct PingReqPacket: EncodablePacket {
-    let fixedHeader: FixedHeader = FixedHeader(controlOptions: [.pingreq, .reserved0], remainingLength: 0)
+    let fixedHeader: FixedHeader = FixedHeader(controlOptions: [.packetType(.pingreq), .reserved0], remainingLength: 0)
 }
 
 // MARK: 3.14 DISCONNECT – Disconnect notification
 
 struct DisconnectPacket: EncodablePacket {
-    let fixedHeader: FixedHeader = FixedHeader(controlOptions: [.disconnect, .reserved0], remainingLength: 0)
+    let fixedHeader: FixedHeader = FixedHeader(controlOptions: [.packetType(.disconnect), .reserved0], remainingLength: 0)
 }

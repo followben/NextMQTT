@@ -1,30 +1,30 @@
 //
-//  MQTT.swift
 //  NextMQTT
 //
-//  Created by Ben Stovold on 23/10/19.
+//  Copyright (c) Ben Stovold 2019
+//  MIT license, see LICENSE file for details
 //
 
 import os
 import Foundation
 
-extension OSLog {
+internal extension OSLog {
     static let mqtt = OSLog(subsystem: Bundle.main.bundleIdentifier!, category: "mqtt")
 }
 
 public final class MQTT {
     
     public enum OptionsKey {
-        case pingInterval, secureConnection, clientId, maxBuffer
+        case pingInterval, secureConnection, clientId, maxBuffer, cleanStart, sessionExpiry
     }
     
     public var onMessage: ((String, Data?) -> Void)?
     public var onConnectionState: ((ConnectionState) -> Void)?
     
     public enum QoS: UInt8 {
-        case qos0
-        case qos1
-        case qos2
+        case mostOnce
+        case leastOnce
+        case exactlyOnce
     }
     
     public enum ConnectionState {
@@ -58,7 +58,8 @@ public final class MQTT {
         return clientId
     }
     private var pingInterval: UInt16 {
-        options[.pingInterval] as? UInt16 ?? 10
+        let interval = options[.pingInterval] as? Int
+        return UInt16(interval ?? 20)
     }
     private var maxBuffer: Int {
         options[.maxBuffer] as? Int ?? 4096
@@ -66,22 +67,60 @@ public final class MQTT {
     private var secureConnection: Bool {
         options[.secureConnection] as? Bool ?? false
     }
+    private var cleanStart: Bool {
+        options[.cleanStart] as? Bool ?? false
+    }
+    private var sessionExpiry: UInt32 {
+        let interval = options[.sessionExpiry] as? Int
+        return UInt32(interval ?? 0)
+    }
     
     private let transportQueue = DispatchQueue(label: "com.simplemqtt.transport")
     
     private var _transport: Transport?
-    private var transport: Transport {
-        if let transport = _transport { return transport }
-        let transport = Transport(hostName: host, port: port, useTLS: secureConnection, maxBuffer: maxBuffer, queue: transportQueue)
-        transport.delegate = self
-        _transport = transport
-        return transport
+    private var transport: Transport! {
+        set {
+            assert(newValue == nil)
+            _transport = nil
+        }
+        get {
+            if let transport = _transport { return transport }
+            let transport = Transport(hostName: host, port: port, useTLS: secureConnection, maxBuffer: maxBuffer, queue: transportQueue)
+            transport.delegate = self
+            _transport = transport
+            return transport
+        }
     }
     
     private var packetId: UInt16 = 0
     
-    private var connAckHandler: ((Result<Void, MQTT.ConnectError>) -> Void)?
-    private var handlerCoordinator = CompletionHandlerCoordinator()
+    private var connAckHandler: ((Result<Bool, MQTT.ConnectError>) -> Void)?
+    
+    private var _handlerStore: SynchronizedStore<UInt16, CompletionHandler>?
+    private var handlerStore: SynchronizedStore<UInt16, CompletionHandler>! {
+        set {
+            assert(newValue == nil)
+            _handlerStore = nil
+        }
+        get {
+            if let store = _handlerStore { return store }
+            _handlerStore = SynchronizedStore<UInt16, CompletionHandler>(withName: "completion")
+            return _handlerStore
+        }
+    }
+    
+    private var _packetStore: SynchronizedStore<UInt16, UnacknowledgedPacket>?
+    private var packetStore: SynchronizedStore<UInt16, UnacknowledgedPacket>! {
+        set {
+            assert(newValue == nil)
+            _packetStore = nil
+        }
+        get {
+            if let store = _packetStore { return store }
+            _packetStore = SynchronizedStore<UInt16, UnacknowledgedPacket>(withName: "message")
+            return _packetStore
+        }
+    }
     
     // MARK: Lifecycle
     
@@ -113,12 +152,12 @@ public extension MQTT {
         self.init(host: host, port: port, username: username, password: password, optionsDict: options)
     }
     
-    func connect(completion: ((Result<Void, MQTT.ConnectError>) -> Void)? = nil) {
+    func connect(completion: ((Result<Bool, MQTT.ConnectError>) -> Void)? = nil) {
         connectionState = .connecting
         connAckHandler = { [weak self] result in
             guard let self = self else { return }
             switch result {
-            case .success():
+            case .success(_):
                 self.connectionState = .connected
                 self.keepAlive()
             case .failure(let error):
@@ -139,9 +178,9 @@ public extension MQTT {
         }
     }
     
-    func subscribe(to topicFilter: String, completion: ((Result<QoS, SubscribeError>) -> Void)? = nil) {
+    func subscribe(to topicFilter: String, options: SubscribeOptions = [.qos(.mostOnce), .retainSendOnSubscribe], completion: ((Result<QoS, SubscribeError>) -> Void)? = nil) {
         transportQueue.async {
-            self.sendSubscribe(topicFilter, completion: completion)
+            self.sendSubscribe(topicFilter, options: options, completion: completion)
         }
     }
     
@@ -151,15 +190,15 @@ public extension MQTT {
         }
     }
 
-    func publish(to topicName: String, message: Data?) {
+    func publish(to topicName: String, qos: QoS = .mostOnce, message: Data? = nil, completion: ((Result<Void, PublishError>) -> Void)? = nil) {
         transportQueue.async {
-            self.sendPublish(topicName, message: message)
+            self.sendPublish(topicName, qos:qos, message: message, completion: completion)
         }
     }
     
 }
 
-// MARK: - iVar Helpers
+// MARK: - Mutators
 
 private extension MQTT {
     
@@ -169,7 +208,13 @@ private extension MQTT {
     }
     
     func resetTransport() {
-        _transport = nil
+        transport = nil
+    }
+    
+    func resetSession() {
+        os_log("Resetting session and removing stores", log: .mqtt, type: .debug)
+        packetStore = nil
+        handlerStore = nil
     }
 
 }
@@ -189,12 +234,13 @@ private extension MQTT {
     
     func reconnect() {
         assert(connectionState == .dropped || connectionState == .reconnecting)
+        os_log("Reconnecting...", log: .mqtt, type: .info)
         if connectionState == .dropped {
             connectionState = .reconnecting
             connAckHandler = { [weak self] result in
                 guard let self = self else { return }
                 switch result {
-                case .success():
+                case .success(_):
                     self.connectionState = .connected
                     self.keepAlive()
                 case .failure(let error):
@@ -207,7 +253,7 @@ private extension MQTT {
         transportQueue.asyncAfter(deadline: deadline) { [weak self] in
             guard let self = self else { return }
             if self.connectionState == .dropped || self.connectionState == .reconnecting {
-                os_log("Reconnect Timed Out. Trying again...", log: .mqtt, type: .info)
+                os_log("Reconnect timed out. Trying again...", log: .mqtt, type: .info)
                 self.reconnect()
             }
         }
@@ -216,54 +262,93 @@ private extension MQTT {
     }
     
     func sendConnect() {
-        let conn = try! ConnectPacket(clientId: clientId, username: username, password: password, keepAlive: pingInterval)
-        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: conn))
+        let conn = try! ConnectPacket(clientId: clientId, username: username, password: password, keepAlive: pingInterval, cleanStart: cleanStart, sessionExpiry: sessionExpiry)
         transport.send(packet: conn)
     }
 
     func sendPing() {
         let ping = PingReqPacket()
-        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: ping))
         transport.send(packet: ping)
     }
     
-    func sendSubscribe(_ topicFilter: String, completion: ((Result<QoS, SubscribeError>) -> Void)? = nil) {
-        let sub = try! SubscribePacket(topicFilter: topicFilter, packetId: nextPacketId())
+    func sendSubscribe(_ topicFilter: String, options: SubscribeOptions, completion: ((Result<QoS, SubscribeError>) -> Void)? = nil) {
+        let sub = try! SubscribePacket(topicFilter: topicFilter, packetId: nextPacketId(), options: options)
         if let handler = completion {
-            handlerCoordinator.store(completionHandler: CompletionHandler.subscribeResultHandler(handler), for: sub.packetId)
+            handlerStore.setValue(CompletionHandler.subscribeResultHandler(handler), forKey: sub.packetId)
         }
-        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: sub))
         transport.send(packet: sub)
     }
     
     func sendUnsubscribe(_ topicFilter: String, completion: ((Result<Void, UnsubscribeError>) -> Void)? = nil) {
         let unsub = try! UnsubscribePacket(topicFilter: topicFilter, packetId: nextPacketId())
         if let handler = completion {
-            handlerCoordinator.store(completionHandler: CompletionHandler.unsubscribeResultHandler(handler), for: unsub.packetId)
+            handlerStore.setValue(CompletionHandler.unsubscribeResultHandler(handler), forKey: unsub.packetId)
         }
-        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: unsub))
         transport.send(packet: unsub)
     }
     
-    func sendPublish(_ topicName: String, message: Data?) {
-        let publish = try! PublishPacket(topicName: topicName, message: message)
-        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: publish))
-        transport.send(packet: publish)
+    func sendPublish(_ topicName: String, qos: QoS, message: Data?, completion: ((Result<Void, PublishError>) -> Void)? = nil) {
+        let packetId = (qos != .mostOnce) ? nextPacketId() : nil
+        let packet = try! PublishPacket(topicName: topicName, qos: qos, packetId: packetId, message: message)
+        if qos != .mostOnce {
+            let packetId = packet.packetId!
+            packetStore.setValue(.publishSent(packet), forKey: packetId)
+            if let completion = completion {
+                handlerStore.setValue(.publishResultHandler(completion), forKey: packetId)
+            }
+        }
+        transport.send(packet: packet)
+        if qos == .mostOnce {
+            completion?(.success(()))
+        }
+    }
+    
+    func sendPuback(packetId: UInt16) {
+        let packet = PubackPacket(packetId: packetId)
+        transport.send(packet: packet)
+    }
+    
+    func sendPubrec(packetId: UInt16) {
+        let packet = PubrecPacket(packetId: packetId)
+        transport.send(packet: packet)
+    }
+    
+    func sendPubrel(packetId: UInt16) {
+        let packet = PubrelPacket(packetId: packetId)
+        transport.send(packet: packet)
+    }
+    
+    func sendPubcomp(packetId: UInt16) {
+        let packet = PubcompPacket(packetId: packetId)
+        transport.send(packet: packet)
     }
     
     func sendDisconnect() {
         connectionState = .disconnecting
         let disconnect = DisconnectPacket()
-        os_log("Sending: %@", log: .mqtt, type: .debug, String(describing: disconnect))
         transport.send(packet: disconnect)
         transport.stop()
         connectionState = .disconnected
     }
+    
+    func resendUnacknowledgedPackets() {
+        os_log("Resending unacked packets", log: .mqtt, type: .info)
+        for unacked in packetStore.values {
+            switch unacked {
+            case .publishSent(let packet):
+                transport.send(packet: packet)
+            case .pubRelSent(let packet):
+                transport.send(packet: packet)
+            default:
+                break
+            }
+        }
+    }
 }
 
-// MARK: - Receiving (TransportDelegate)
+// MARK: - Receiving
 
-extension MQTTDecoder {
+private extension MQTTDecoder {
     static func decode<T: MQTTDecodable>(_ packet: MQTTPacket, as type: T.Type) -> T? {
         let result = Result { try MQTTDecoder.decode(T.self, data: packet.bytes) }
         guard case .success(let packet) = result else {
@@ -274,109 +359,242 @@ extension MQTTDecoder {
     }
 }
 
+private extension MQTT {
+    
+    func processConnack(_ connack: ConnackPacket) {
+        
+        if connack.flags.contains(.sessionPresent) {
+            if !cleanStart && sessionExpiry > 0 {
+                resendUnacknowledgedPackets()
+            } else {
+                connAckHandler?(.failure(.protocolError)) // TODO: this should be a specific error as per [MQTT-3.2.2-4]
+                transport.stop()
+                connectionState = .disconnected
+                resetTransport()
+            }
+        } else {
+            resetSession()
+        }
+        
+        if let error = connack.error {
+            connAckHandler?(.failure(error))
+        } else {
+            connAckHandler?(.success(connack.flags.contains(.sessionPresent)))
+        }
+        connAckHandler = nil
+    }
+    
+    func processSuback(_ suback: SubackPacket) {
+        var handler: ((Result<QoS, SubscribeError>) -> Void)?
+        if case .subscribeResultHandler(let resultHandler) = handlerStore.removeValueForKey(suback.packetId) {
+            handler = resultHandler
+        }
+        if let qos = suback.qos {
+            os_log("Subscribe successful: %@", log: .mqtt, type: .info, String(describing: qos))
+            handler?(.success(qos))
+        } else if let error = suback.error {
+            os_log("Subscribe error: %@", log: .mqtt, type: .error, String(describing: error))
+            handler?(.failure(error))
+        }
+    }
+    
+    func processUnsuback(_ unsuback: UnsubackPacket) {
+        var handler: ((Result<Void, UnsubscribeError>) -> Void)?
+        if case .unsubscribeResultHandler(let resultHandler) = handlerStore.removeValueForKey(unsuback.packetId) {
+            handler = resultHandler
+        }
+        if let error = unsuback.error {
+            os_log("Unsubscribe error: %@", log: .mqtt, type: .error, String(describing: error))
+            handler?(.failure(error))
+        } else {
+            os_log("Unsubscribe successful", log: .mqtt, type: .info)
+            handler?(.success(()))
+        }
+    }
+    
+    func processPublish(_ publish: PublishPacket) {
+        os_log("Received publish for packetId %@", log: .mqtt, type: .debug, String(describing: publish.packetId))
+        if publish.fixedHeader.controlOptions.contains(.qos(.exactlyOnce)) {
+            assert(publish.packetId != nil)
+            assert(publish.topicName.count > 0)
+            packetStore.setValue(.publishReceived(publish), forKey: publish.packetId!)
+            sendPubrec(packetId: publish.packetId!)
+        } else {
+            if publish.fixedHeader.controlOptions.contains(.qos(.leastOnce)), let packetId = publish.packetId {
+                sendPuback(packetId: packetId)
+            }
+            onMessage?(publish.topicName, publish.message)
+        }
+    }
+    
+    func processPuback(_ puback: PubackPacket) {
+        let publish = packetStore.removeValueForKey(puback.packetId)
+        assert(publish != nil)
+        var handler: ((Result<Void, PublishError>) -> Void)?
+        if case .publishResultHandler(let resultHandler) = handlerStore.removeValueForKey(puback.packetId) {
+            handler = resultHandler
+        }
+        if let error = puback.error {
+            os_log("Received puback for packetId %@ with error: %@", log: .mqtt, type: .error, String(describing: puback.packetId), String(describing: error))
+            handler?(.failure(error))
+        } else {
+            os_log("Received puback for packetId %@", log: .mqtt, type: .debug, String(describing: puback.packetId))
+            handler?(.success(()))
+        }
+    }
+    
+    func processPubrec(_ pubrec: PubrecPacket) {
+        let publish = packetStore.removeValueForKey(pubrec.packetId)
+        assert(publish != nil)
+        if let error = pubrec.error {
+            var handler: ((Result<Void, PublishError>) -> Void)?
+            if case .publishResultHandler(let resultHandler) = handlerStore.removeValueForKey(pubrec.packetId) {
+                handler = resultHandler
+            }
+            os_log("Received pubrec for packetId %@ with error: %@", log: .mqtt, type: .error, String(describing: pubrec.packetId), String(describing: error))
+            handler?(.failure(error))
+        } else {
+            os_log("Received pubrec for packetId %@", log: .mqtt, type: .debug, String(describing: pubrec.packetId))
+            sendPubrel(packetId: pubrec.packetId)
+            packetStore.setValue(.pubRelSent(pubrec), forKey: pubrec.packetId)
+        }
+    }
+    
+    func processPubrel(_ pubrel: PubrelPacket) {
+        let packetId = pubrel.packetId
+        if case .publishReceived(let publish) = packetStore.removeValueForKey(packetId) {
+            os_log("Received pubrel for packetId %@", log: .mqtt, type: .debug, String(describing: packetId))
+            onMessage?(publish.topicName, publish.message)
+        } else {
+            os_log("Received pubrel for unknown packetId %@", log: .mqtt, type: .info, String(describing: packetId))
+        }
+        sendPubcomp(packetId: packetId)
+    }
+    
+    func processPubcomp(_ pubcomp: PubcompPacket) {
+        let pubrel = packetStore.removeValueForKey(pubcomp.packetId)
+        assert(pubrel != nil)
+        var handler: ((Result<Void, PublishError>) -> Void)?
+        if case .publishResultHandler(let resultHandler) = handlerStore.removeValueForKey(pubcomp.packetId) {
+            handler = resultHandler
+        }
+        if let error = pubcomp.error {
+            os_log("Received pubcomp for packetId %@ with error: %@", log: .mqtt, type: .error, String(describing: pubcomp.packetId), String(describing: error))
+            handler?(.failure(error))
+        } else {
+            os_log("Received pubcomp for packetId %@", log: .mqtt, type: .debug, String(describing: pubcomp.packetId))
+            handler?(.success(()))
+        }
+    }
+}
+
+// MARK: - TransportDelegate
+
 extension MQTT: TransportDelegate {
     func didStart(transport: Transport) {
         sendConnect()
     }
 
     func didReceive(packet: MQTTPacket, transport: Transport) {
-        switch packet.fixedHeader.controlOptions {
+        switch packet.fixedHeader.controlOptions.packetType {
         case .connack:
-            if let onConnack = connAckHandler {
-                if let connack = MQTTDecoder.decode(packet, as: ConnackPacket.self) {
-                    if let error = connack.error {
-                        onConnack(.failure(error))
-                    } else {
-                        onConnack(.success(()))
-                    }
-                } else {
-                    onConnack(.failure(.unspecifiedError))
-                }
+            if let connack = MQTTDecoder.decode(packet, as: ConnackPacket.self) {
+                processConnack(connack)
+            } else if let onConnack = connAckHandler {
+                onConnack(.failure(.unspecifiedError))
                 connAckHandler = nil
             }
-            
         case .suback:
-            guard let suback = MQTTDecoder.decode(packet, as: SubackPacket.self) else { return }
-            
-            var handler: ((Result<QoS, SubscribeError>) -> Void)?
-            if case .subscribeResultHandler(let resultHandler) = handlerCoordinator.retrieveCompletionHandler(for: suback.packetId) {
-                handler = resultHandler
+            if let suback = MQTTDecoder.decode(packet, as: SubackPacket.self) {
+                processSuback(suback)
             }
-            
-            if let qos = suback.qos {
-                os_log("Subscribe successful: %@", log: .mqtt, type: .info, String(describing: qos))
-                handler?(.success(qos))
-            } else if let error = suback.error {
-                os_log("Subscribe error: %@", log: .mqtt, type: .error, String(describing: error))
-                handler?(.failure(error))
-            }
-            
         case .unsuback:
-            guard let unsuback = MQTTDecoder.decode(packet, as: UnsubackPacket.self) else { return }
-            
-            var handler: ((Result<Void, UnsubscribeError>) -> Void)?
-            if case .unsubscribeResultHandler(let resultHandler) = handlerCoordinator.retrieveCompletionHandler(for: unsuback.packetId) {
-                handler = resultHandler
+            if let unsuback = MQTTDecoder.decode(packet, as: UnsubackPacket.self) {
+                processUnsuback(unsuback)
             }
-            
-            if let error = unsuback.error {
-                os_log("Unsubscribe error: %@", log: .mqtt, type: .error, String(describing: error))
-                handler?(.failure(error))
-            } else {
-                os_log("Unsubscribe successful", log: .mqtt, type: .info)
-                handler?(.success(()))
-            }
-            
         case .publish:
-            guard let messageHandler = onMessage, let publish = MQTTDecoder.decode(packet, as: PublishPacket.self) else { return }
-            messageHandler(publish.topicName, publish.message)
-            
+            if let publish = MQTTDecoder.decode(packet, as: PublishPacket.self) {
+                processPublish(publish)
+            }
+        case .puback:
+            if let puback = MQTTDecoder.decode(packet, as: PubackPacket.self) {
+                processPuback(puback)
+            }
+        case .pubrec:
+            if let pubrec = MQTTDecoder.decode(packet, as: PubrecPacket.self) {
+                processPubrec(pubrec)
+            }
+        case .pubrel:
+            if let pubrel = MQTTDecoder.decode(packet, as: PubrelPacket.self) {
+                processPubrel(pubrel)
+            }
+        case .pubcomp:
+            if let pubcomp = MQTTDecoder.decode(packet, as: PubcompPacket.self) {
+                processPubcomp(pubcomp)
+            }
         default:
-            os_log("Received %@", log: .mqtt, type: .debug, String(describing: packet.fixedHeader.controlOptions))
+            os_log("Unhandled packet: %@", log: .mqtt, type: .error, String(describing: packet.fixedHeader.controlOptions))
         }
     }
 
     func didStop(transport: Transport, error: Transport.Error?) {
-        if error == nil {
-            connectionState = .dropped
-            resetTransport()
-            reconnect()
-        } else {
-            os_log("TODO: handle transport error", log: .mqtt, type: .error)
-        }
+        os_log("Dropped connection %@", log: .mqtt, type: .error, String(describing: error))
+        connectionState = .dropped
+        resetTransport()
+        reconnect()
     }
 }
 
-// MARK: - Helper classes
+// MARK: - Storage classes
 
 fileprivate extension MQTT {
     enum CompletionHandler {
-        case emptyHandler(() -> Void)
-        case errorHandler((Error?) -> Void)
         case subscribeResultHandler(((Result<QoS, SubscribeError>) -> Void))
         case unsubscribeResultHandler(((Result<Void, UnsubscribeError>) -> Void))
+        case publishResultHandler(((Result<Void, PublishError>) -> Void))
     }
-
-    class CompletionHandlerCoordinator {
-        private var completionHandlers: [UInt16: CompletionHandler] = [:]
-        private let completionHandlerAccessQueue = DispatchQueue(label: "com.simplemqtt.completion", attributes: .concurrent)
-
-        // TODO: add timeout errors for completion handler types?
-        fileprivate func store(completionHandler: CompletionHandler, for packetId: UInt16) {
-            completionHandlerAccessQueue.async(flags:.barrier) {
-                self.completionHandlers[packetId] = completionHandler
+    
+    enum UnacknowledgedPacket {
+        case publishSent(PublishPacket)
+        case pubRelSent(PubrecPacket)
+        case publishReceived(PublishPacket)
+    }
+    
+    class SynchronizedStore<Key: Hashable, Value> {
+        private var store: [Key: Value] = [:]
+        
+        private let name: String
+        private lazy var queue: DispatchQueue = {
+            DispatchQueue(label: "com.simplemqtt." + name.lowercased(), attributes: .concurrent)
+        }()
+        
+        var values: [Value] {
+            return store.values.compactMap { $0 }
+        }
+        
+        init(withName name: String) {
+            self.name = name
+        }
+        
+        func setValue(_ value: Value, forKey key: Key) {
+            queue.async(flags:.barrier) {
+                self.store[key] = value
+                os_log("Stored with key %@: %@", log: .mqtt, type: .debug, String(describing: key), String(describing: value))
             }
         }
 
-        fileprivate func retrieveCompletionHandler(for packetId: UInt16) -> CompletionHandler? {
-            var handler: CompletionHandler?
-            completionHandlerAccessQueue.sync {
-                handler = self.completionHandlers[packetId]
+        @discardableResult
+        func removeValueForKey(_ key: Key) -> Value? {
+            var value: Value?
+            queue.sync {
+                value = self.store[key]
             }
-            completionHandlerAccessQueue.async(flags:.barrier) {
-                self.completionHandlers[packetId] = nil
+            queue.async(flags: .barrier) {
+                self.store[key] = nil
+                
             }
-            return handler
+            os_log("Removing from key %@: %@", log: .mqtt, type: .debug, String(describing: key), String(describing: value))
+            return value
         }
     }
 }
