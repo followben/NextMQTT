@@ -203,7 +203,11 @@ public extension MQTT {
 private extension MQTT {
     
     func nextPacketId() -> UInt16 {
-        packetId = packetId &+ 1
+        if packetId == UInt16.max {
+            packetId = 1
+        } else {
+            packetId += 1
+        }
         return packetId
     }
     
