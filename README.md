@@ -99,7 +99,7 @@ Please ensure tests pass and are up-to-date.
 
 ## Roadmap
 Planned features include:
-- [ x] Support for QoS 1 and 2 incl. session state
+- [x] Support for QoS 1 and 2 incl. session state
 - [ ] Properties, incl. User Properties
 - [ ] Publish with retain
 - [ ] Will Messages
