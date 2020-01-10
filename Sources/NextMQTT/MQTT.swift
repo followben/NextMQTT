@@ -124,10 +124,6 @@ public final class MQTT {
     
     // MARK: Lifecycle
     
-    deinit {
-        disconnect()
-    }
-    
     private init(host: String, port: Int, username: String? = nil, password: String? = nil, optionsDict: [OptionsKey: Any]? = nil) {
         self.host = host
         self.port = port
