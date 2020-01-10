@@ -57,7 +57,7 @@
 		9FA0BFCE23907CCF00E635E0 /* LICENSE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = LICENSE.md; sourceTree = "<group>"; };
 		9FA75DA92390CDFC0051D744 /* FunctionalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FunctionalTests.swift; sourceTree = "<group>"; };
 		9FA75DBA2390D0A30051D744 /* IntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationTests.swift; sourceTree = "<group>"; };
-		"NextMQTT::NextMQTT::Product" /* NextMQTT.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = NextMQTT.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		"NextMQTT::NextMQTT::Product" /* NextMQTT.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = NextMQTT.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		"NextMQTT::NextMQTTTests::Product" /* NextMQTTTests.xctest */ = {isa = PBXFileReference; lastKnownFileType = file; path = NextMQTTTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		OBJ_10 /* MQTTCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MQTTCodable.swift; sourceTree = "<group>"; };
 		OBJ_11 /* MQTTDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MQTTDecoder.swift; sourceTree = "<group>"; };
@@ -297,6 +297,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) $(TOOLCHAIN_DIR)/usr/lib/swift/macosx";
 				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MARKETING_VERSION = 0.1.0;
 				OTHER_CFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = "$(inherited)";
 				OTHER_SWIFT_FLAGS = "$(inherited)";
@@ -325,6 +326,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) $(TOOLCHAIN_DIR)/usr/lib/swift/macosx";
 				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MARKETING_VERSION = 0.1.0;
 				OTHER_CFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = "$(inherited)";
 				OTHER_SWIFT_FLAGS = "$(inherited)";
